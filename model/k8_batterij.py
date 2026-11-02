@@ -85,14 +85,14 @@ def bereken(b, p, dag, last_per_woning, zon_per_kwp, modus: str = MODI[0]) -> Re
     laden = float(np.clip(v, 0, None).sum() * DT)
     verlies = float(v.sum() * DT)
     checks = [
-        Check("Σ v ÷ 4 ≥ 0 (verlies)", nl(verlies, 4), "≥ 0", verlies >= -TOL),
-        Check("Σ v ÷ 4 ≤ (1 − η) × geladen", nl(verlies, 4), f"≤ {nl((1 - p['bat_eta']) * laden, 4)}",
+        Check("Verlies over de dag ≥ 0 (Σ v ÷ 4)", nl(verlies, 4), "≥ 0", verlies >= -TOL),
+        Check("Verlies ≤ rendementsverlies op wat geladen is", nl(verlies, 4), f"≤ {nl((1 - p['bat_eta']) * laden, 4)}",
               verlies <= (1 - p["bat_eta"]) * laden + TOL),
-        Check("|v| ≤ vermogen per kWh", nl(float(np.abs(v).max()), 3), f"≤ {nl(p['bat_c'], 2)}",
+        Check("Laad- en ontlaadvermogen binnen maximum (|v|)", nl(float(np.abs(v).max()), 3), f"≤ {nl(p['bat_c'], 2)}",
               float(np.abs(v).max()) <= p["bat_c"] + TOL),
-        Check("SoC tussen 0 en 100 %", f"{nl(m.soc.min() * 100)} tot {nl(m.soc.max() * 100)} %", "0 tot 100",
+        Check("Laadtoestand tussen 0 en 100 %", f"{nl(m.soc.min() * 100)} tot {nl(m.soc.max() * 100)} %", "0 tot 100",
               m.soc.min() >= -TOL and m.soc.max() <= 1 + TOL),
-        Check("Eind-SoC = begin-SoC", f"{nl(m.soc[-1] * 100, 1)} %", f"{nl(m.soc_start * 100, 1)} %",
+        Check("Batterij eindigt zo vol als hij begon", f"{nl(m.soc[-1] * 100, 1)} %", f"{nl(m.soc_start * 100, 1)} %",
               abs(m.soc[-1] - m.soc_start) < 1e-6),
     ]
     return Resultaat(N, batterijen, last, pv, prijs, goedkoop, duur, modi, modus, v, P, checks)

@@ -48,10 +48,12 @@ def checks_standaard(P, N: float, E: float, v, teken: int) -> list[Check]:
     v = np.asarray(v)
     juist_teken = bool(np.all(v >= -TOL)) if teken > 0 else bool(np.all(v <= TOL))
     return [
-        Check("Σ P[t] ÷ 4 = " + ("N × E" if teken > 0 else "−N × E"),
+        Check("Dagtotaal = aantal × energie per stuk (Σ P ÷ 4 = " + ("N × E)" if teken > 0 else "−N × E)"),
               f"{nl(som_p)} kWh", f"{nl(doel)} kWh", abs(som_p - doel) <= TOL * max(1, abs(doel))),
-        Check("Σ v", nl(som_v, 6), "+1" if teken > 0 else "−1", abs(som_v - teken) <= TOL),
-        Check("Teken v", "alle ≥ 0" if np.all(v >= -TOL) else ("alle ≤ 0" if np.all(v <= TOL) else "gemengd"),
+        Check("Verloop telt op tot " + ("100 %" if teken > 0 else "−100 %") + " van de dag (Σ v)", nl(som_v, 6),
+              "+1" if teken > 0 else "−1", abs(som_v - teken) <= TOL),
+        Check("Overal " + ("verbruik" if teken > 0 else "opwek") + " (teken v)",
+              "alle ≥ 0" if np.all(v >= -TOL) else ("alle ≤ 0" if np.all(v <= TOL) else "gemengd"),
               "alle ≥ 0" if teken > 0 else "alle ≤ 0", juist_teken),
     ]
 

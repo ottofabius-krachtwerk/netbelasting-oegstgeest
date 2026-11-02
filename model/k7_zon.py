@@ -32,6 +32,6 @@ def bereken(b, p, dag) -> Resultaat:
     v = zonvorm(I)
     P = p_kw(N, E, v)
     checks = checks_standaard(P, N, E, v, -1) + [
-        Check("E ≤ I_ref (PR ≤ 1)", f"{nl(E, 3)} kWh/kWp", f"≤ {nl(i_ref, 3)}", E <= i_ref),
+        Check("Opbrengst per kWp ≤ instraling (performance ratio ≤ 1)", f"{nl(E, 3)} kWh/kWp", f"≤ {nl(i_ref, 3)}", E <= i_ref),
     ]
     return Resultaat(N, n_huidig, I, i_ref, E, v, P, checks)

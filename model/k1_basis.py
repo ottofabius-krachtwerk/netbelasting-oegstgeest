@@ -41,9 +41,9 @@ def bereken(b, p, dag, prof, woningtypen: pd.DataFrame) -> Resultaat:
     v = f / d
     P = p_kw(N, E, v)
     checks = checks_standaard(P, N, E, v, +1) + [
-        Check("Σ woningtypen = woningen buurt", nl(N), nl(b["woningen"]), abs(N - b["woningen"]) < TOL),
-        Check("E_jaar ≥ levering (E_netto)", f"{nl(e_jaar_buurt)} kWh", f"≥ {nl(e_netto)} kWh",
+        Check("Woningen per type tellen op tot de buurt", nl(N), nl(b["woningen"]), abs(N - b["woningen"]) < TOL),
+        Check("Huishoudelijk jaarverbruik ≥ netto verbruik (E_jaar ≥ E_netto)", f"{nl(e_jaar_buurt)} kWh", f"≥ {nl(e_netto)} kWh",
               e_jaar_buurt >= e_netto - TOL),
-        Check("E_jaar > 0", f"{nl(e_jaar_buurt)} kWh", "> 0", e_jaar_buurt > 0),
+        Check("Huishoudelijk jaarverbruik positief (E_jaar > 0)", f"{nl(e_jaar_buurt)} kWh", "> 0", e_jaar_buurt > 0),
     ]
     return Resultaat(N, types, e_netto, e_zon, e_wp, e_ev, e_jaar_buurt, e_jaar, d, f, E, v, P, checks)

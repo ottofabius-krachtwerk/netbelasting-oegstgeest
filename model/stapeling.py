@@ -27,11 +27,11 @@ def bereken(P: dict, dagenergie: dict) -> Resultaat:
     tabel = pd.DataFrame(rijen)
     som, doel = P_tot.sum() / 4, sum(dagenergie.values())
     checks = [
-        Check("Σ kaarten op piek = piek", f"{nl(tabel['op_piek'].sum())} kW", f"{nl(P_tot[i])} kW",
+        Check("Bijdragen tellen op tot de piek", f"{nl(tabel['op_piek'].sum())} kW", f"{nl(P_tot[i])} kW",
               abs(tabel["op_piek"].sum() - P_tot[i]) <= TOL * max(1, abs(P_tot[i]))),
-        Check("Σ P[t] ÷ 4 = Σ dagenergie kaarten", f"{nl(som)} kWh", f"{nl(doel)} kWh", abs(som - doel) <= TOL * max(1, abs(doel))),
+        Check("Dagtotaal = som van de dagtotalen van de tabs", f"{nl(som)} kWh", f"{nl(doel)} kWh", abs(som - doel) <= TOL * max(1, abs(doel))),
     ] + [
-        Check(f"Dagenergie {k}", f"{nl(P[k].sum() / 4)} kWh", f"{nl(e)} kWh", abs(P[k].sum() / 4 - e) <= TOL * max(1, abs(e)))
+        Check(f"Dagtotaal {k} klopt", f"{nl(P[k].sum() / 4)} kWh", f"{nl(e)} kWh", abs(P[k].sum() / 4 - e) <= TOL * max(1, abs(e)))
         for k, e in dagenergie.items()
     ]
     return Resultaat(P, dagenergie, P_tot, i, tabel, checks)

@@ -94,12 +94,12 @@ def bereken(b, p, dag, prof, oplossing: str | None = None, wp_vorm: str = "vlak"
         v, vorm_bron = vorm(np.maximum(p["t_stookgrens"] - T, 0)), "graaduren"
     P = p_kw(N, E, v)
     checks = checks_standaard(P, N, E, v, +1) + [
-        Check("Q_jaar > 0", f"{nl(Q)} kWh", "> 0", Q > 0),
+        Check("Warmtevraag per jaar positief (Q_jaar > 0)", f"{nl(Q)} kWh", "> 0", Q > 0),
     ]
     if oplossing in TECH:
         t = TECH[oplossing]
         lo, hi = p[f"cop_min_{t}"], p[f"cop_max_{t}"]
-        checks.append(Check(f"COP {oplossing} in bereik", nl(c, 2), f"{nl(lo, 1)} tot {nl(hi, 1)}", lo <= c <= hi))
+        checks.append(Check(f"COP {oplossing} binnen controlebereik", nl(c, 2), f"{nl(lo, 1)} tot {nl(hi, 1)}", lo <= c <= hi))
     return Resultaat(oplossing, N, b["gas_m3_per_woning"], p["gas_tapwater_koken_m3"], q_jaar_gas(b, p),
                      b["labelfactor"], Q, gd_ref,
                      q_ref, T, vorm_bron, band, c, E, v, P, checks)

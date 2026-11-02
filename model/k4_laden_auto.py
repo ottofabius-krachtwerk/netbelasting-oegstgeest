@@ -40,8 +40,8 @@ def bereken(b, p, prof) -> Resultaat:
     v = (1 - a) * vo + a * vs
     P = p_kw(N, E, v)
     checks = checks_standaard(P, N, E, v, +1) + [
-        Check("Σ v_ongestuurd = 1", nl(vo.sum(), 6), "1", abs(vo.sum() - 1) <= TOL),
-        Check("Σ v_slim = 1", nl(vs.sum(), 6), "1", abs(vs.sum() - 1) <= TOL),
-        Check("N ≤ personenauto's buurt", nl(N), f"≤ {nl(b['personenautos'])}", N <= b["personenautos"]),
+        Check("Ongestuurd verloop telt op tot 100 % (Σ v_ongestuurd)", nl(vo.sum(), 6), "1", abs(vo.sum() - 1) <= TOL),
+        Check("Slim verloop telt op tot 100 % (Σ v_slim)", nl(vs.sum(), 6), "1", abs(vs.sum() - 1) <= TOL),
+        Check("Niet meer EV's dan personenauto's in de buurt", nl(N), f"≤ {nl(b['personenautos'])}", N <= b["personenautos"]),
     ]
     return Resultaat(N, n_huidig, n_extra, E, a, vo, vs, v, P, checks)

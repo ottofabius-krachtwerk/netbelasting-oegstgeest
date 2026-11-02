@@ -40,10 +40,10 @@ def bereken(p, dag, prof, sectoren: pd.DataFrame, profielbron: str = "Liander") 
     P_tot = np.sum(list(P.values()), axis=0) if P else np.zeros(96)
     som_p, doel = P_tot.sum() / 4, float((df["teken"] * df["E"]).sum())
     checks = [
-        Check("Σ P[t] ÷ 4 = Σ teken × E_s", f"{nl(som_p)} kWh", f"{nl(doel)} kWh", abs(som_p - doel) <= TOL * max(1, abs(doel))),
-        Check("Elke sector één keer", f"{df['sector'].nunique()} van {len(df)}", "uniek", df["sector"].is_unique),
+        Check("Dagtotaal = som van de sectoren (Σ P ÷ 4 = Σ E_s)", f"{nl(som_p)} kWh", f"{nl(doel)} kWh", abs(som_p - doel) <= TOL * max(1, abs(doel))),
+        Check("Elke sector komt één keer voor", f"{df['sector'].nunique()} van {len(df)}", "uniek", df["sector"].is_unique),
     ] + [
-        Check(f"Σ v en teken: {r.sector}", nl(V[r.sector].sum(), 4), f"{r.teken:+d}, alle {'≥' if r.teken > 0 else '≤'} 0",
+        Check(f"Verloop {r.sector} telt op tot {'100' if r.teken > 0 else '−100'} % (Σ v)", nl(V[r.sector].sum(), 4), f"{r.teken:+d}, alle {'≥' if r.teken > 0 else '≤'} 0",
               abs(V[r.sector].sum() - r.teken) <= TOL and bool(np.all(V[r.sector] * r.teken >= -TOL)))
         for r in df.itertuples()
     ]

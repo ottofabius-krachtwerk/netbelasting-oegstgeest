@@ -19,15 +19,18 @@ def badge(status: str) -> str:
 
 
 def stap(nr: int, titel: str, waarde: str | None = None, eenheid: str = "", fig=None,
-         extra: list[tuple[str, str]] | None = None, tag: str = "bron", uitleg: str = "") -> None:
+         extra: list[tuple[str, str]] | None = None, tag: str = "bron", uitleg: str = "", bron: str = "") -> None:
     """Eén rekenstap als rij: links titel, uitleg en resultaat, rechts een kleine grafiek."""
     with st.container(border=True):
         links, rechts = st.columns([1, 1.6], vertical_alignment="center") if fig is not None else (st.container(), None)
         with links:
             regels = [f"<div style='font-weight:600'>{nr} · {titel}{badge(tag)}</div>"]
             if uitleg:
-                regels.append(f"<div style='font-size:.82rem;color:#52514e;line-height:1.35;margin:.2rem 0 .35rem'>"
+                regels.append(f"<div style='font-size:.82rem;color:#52514e;line-height:1.35;margin:.2rem 0 .2rem'>"
                               f"{uitleg}</div>")
+            if bron:
+                regels.append(f"<div style='font-size:.74rem;color:#898781;line-height:1.3;margin:0 0 .35rem'>"
+                              f"<b>Bron</b> {bron}</div>")
             if waarde is not None:
                 regels.append(f"<div style='font-size:1.35rem;font-weight:600;line-height:1.25'>{waarde} "
                               f"<span style='font-size:.8rem;font-weight:400;color:#52514e'>{eenheid}</span></div>")
@@ -40,7 +43,7 @@ def stap(nr: int, titel: str, waarde: str | None = None, eenheid: str = "", fig=
                 toon(fig)
 
 
-def p_en_checks(nr: int, P, kleur: str, checks: list[Check], naam: str = "P[t]", fig=None) -> None:
+def p_en_checks(nr: int, P, kleur: str, checks: list[Check], naam: str = "Profiel over de dag", fig=None) -> None:
     links, rechts = st.columns([1.7, 1])
     i_max, i_min = int(np.argmax(P)), int(np.argmin(P))
     with links, st.container(border=True):
@@ -48,7 +51,7 @@ def p_en_checks(nr: int, P, kleur: str, checks: list[Check], naam: str = "P[t]",
                 f"max <b>{nl(P[i_max])} kW</b> om {TIJD[i_max]} · min <b>{nl(P[i_min])} kW</b> om {TIJD[i_min]}")
         st.markdown(f"**{nr} · {naam}** <span style='color:#52514e;font-size:.85rem;margin-left:.5rem'>{kern}</span>",
                     unsafe_allow_html=True)
-        toon(fig if fig is not None else lijn({naam: P}, [kleur], "kW", H_GROOT, fmt=",.1f", vlak=True))
+        toon(fig if fig is not None else lijn({"profiel": P}, [kleur], "kW", H_GROOT, fmt=",.1f", vlak=True))
     with rechts, st.container(border=True):
         st.markdown(f"**{nr + 1} · Checks**")
         checktabel(checks)

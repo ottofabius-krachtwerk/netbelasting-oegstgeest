@@ -23,6 +23,6 @@ def bereken(b, p, prof) -> Resultaat:
     P = p_kw(N, E, v)
     g = p["koken_penetratie_groei"]
     checks = checks_standaard(P, N, E, v, +1) + [
-        Check("Penetratie 0 tot 100 %", f"{nl(g)} %", "0 tot 100", 0 <= g <= 100),
+        Check("Extra aandeel tussen 0 en 100 %", f"{nl(g)} %", "0 tot 100", 0 <= g <= 100),
     ]
     return Resultaat(float(b["huishoudens"]), N, E, v, P, checks)

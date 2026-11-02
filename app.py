@@ -52,13 +52,13 @@ with st.sidebar:
             b["warmteoplossing"] = st.selectbox(f"Warmteoplossing ({buurt})", WARMTEOPLOSSINGEN,
                                                 index=WARMTEOPLOSSINGEN.index(b["warmteoplossing"]),
                                                 key=f"{bron}:wo:{code}")
-            b["isolatie_reductie"] = st.number_input(f"Isolatie: reductie warmtevraag (%, {buurt})", 0.0, 80.0,
+            b["isolatie_reductie"] = st.number_input(f"Isolatie {buurt} (% minder warmtevraag per woning dan nu)", 0.0, 80.0,
                                                      float(b["isolatie_reductie"]), 1.0, key=f"{bron}:iso:{code}")
             keuzes["wp_vorm"] = st.radio("Vorm warmtepomp (all-electric)", k3_warmtepomp.VORMEN, horizontal=True,
                                          format_func=lambda v: {"G1A": "G1A (bovengrens)", "vlak": "vlak (ondergrens)"}[v],
                                          key=f"{bron}:wpvorm")
         elif kaart == 4:
-            b["ev_toename_pct"] = st.number_input(f"EV toename (% van de personenauto's, {buurt})", 0.0, 100.0,
+            b["ev_toename_pct"] = st.number_input(f"Extra EV's {buurt} (% van alle huidige personenauto's in de buurt, bovenop de huidige EV's)", 0.0, 100.0,
                                                   float(b["ev_toename_pct"]), 1.0, key=f"{bron}:ev:{code}")
         elif kaart == 6:
             keuzes["mkb_bron"] = st.radio("Sectorprofielen", k6_mkb.PROFIELBRONNEN, horizontal=True,
