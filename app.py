@@ -14,6 +14,16 @@ st.markdown("<style>.block-container{padding-top:2.2rem;padding-bottom:1rem}"
 BADGE = {"mock": ":gray-badge[mock]", "placeholder": ":orange-badge[placeholder]"}
 
 
+def _tablabel(kaart: int, tekst: str) -> str:
+    """Tabtitel gekleurd naar de status van de methodiek: groen vastgesteld, rood open."""
+    return f":{'green' if VASTGESTELD.get(kaart, False) else 'red'}[{tekst}]"
+
+
+TABLABEL = {k: _tablabel(k, kaartnaam(k)) for k in VOLGORDE} | {9: _tablabel(9, f"{len(VOLGORDE) + 1} Stapeling")}
+# De gekozen tab (uit de vorige run) bepaalt welke groep in de zijbalk open staat
+ACTIEF = {v: k for k, v in TABLABEL.items()}.get(st.session_state.get("tabkeuze"), VOLGORDE[0])
+
+
 @st.cache_data
 def _laad(bron: str):
     return laad(bron)
@@ -61,7 +71,7 @@ with st.sidebar:
         rijen = data.parameters[data.parameters["kaart"] == kaart]
         if rijen.empty and kaart not in (3, 4, 6, 8):
             continue
-        with st.expander(kaartnaam(kaart).replace(" ", " · ", 1)):
+        with st.expander(kaartnaam(kaart).replace(" ", " · ", 1), expanded=kaart == ACTIEF):
             _keuzes(kaart)
             for naam, r in rijen.iterrows():
                 label = f"{r['label']} ({r['eenheid']}) {BADGE.get(r['status'], '')}"
@@ -82,13 +92,8 @@ datum = pd.Timestamp(dag["datum"].iloc[0])
 kop = f"#### Netbelasting · {b['buurt_naam']} · {['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'][datum.weekday()]} {datum:%d-%m-%Y}"
 st.markdown(kop + ("  :gray-badge[mockdata]" if bron == "mock" else ""))
 
-def _tablabel(kaart: int, tekst: str) -> str:
-    """Tabtitel gekleurd naar de status van de methodiek: groen vastgesteld, rood open."""
-    return f":{'green' if VASTGESTELD.get(kaart, False) else 'red'}[{tekst}]"
-
-
-t = dict(zip(VOLGORDE + [9], st.tabs([_tablabel(k, kaartnaam(k)) for k in VOLGORDE]
-                                     + [_tablabel(9, f"{len(VOLGORDE) + 1} Stapeling")])))
+# Tabkeuze met rerun: de zijbalk opent de groep van de gekozen tab, en alleen die tab wordt opgebouwd
+t = dict(zip(TABLABEL, st.tabs(list(TABLABEL.values()), key="tabkeuze", on_change="rerun")))
 r3 = k3_warmtepomp.bereken(b, p, dag, prof, wp_vorm=wp_vorm)
 varianten = {o: k3_warmtepomp.bereken(b, p, dag, prof, o, wp_vorm) for o in WARMTEOPLOSSINGEN}
 r4 = k4_laden_auto.bereken(b, p, prof)
@@ -99,20 +104,27 @@ sect = data.sectoren[data.sectoren["buurt_code"] == code]
 r6 = k6_mkb.bereken(p, dag, prof, sect, mkb_bron)
 mkb_opties = {o: k6_mkb.bereken(p, dag, prof, sect, o) for o in k6_mkb.PROFIELBRONNEN}
 
-with t[3]:
-    tabs.kaart3(r3, varianten, p, data.status, b["isolatie_reductie"], labeltabel)
-with t[4]:
-    tabs.kaart4(r4, p, data.status, b["ev_toename_pct"])
-with t[7]:
-    tabs.kaart7(r7, p, data.status)
-with t[1]:
-    tabs.kaart1(r1, data.status)
-with t[2]:
-    tabs.kaart2(r2, data.status)
-with t[5]:
-    tabs.kaart5(r5, p, data.status)
-with t[6]:
-    tabs.kaart6(r6, mkb_opties, data.status)
+if t[3].open:
+    with t[3]:
+        tabs.kaart3(r3, varianten, p, data.status, b["isolatie_reductie"], labeltabel)
+if t[4].open:
+    with t[4]:
+        tabs.kaart4(r4, p, data.status, b["ev_toename_pct"])
+if t[7].open:
+    with t[7]:
+        tabs.kaart7(r7, p, data.status)
+if t[1].open:
+    with t[1]:
+        tabs.kaart1(r1, data.status)
+if t[2].open:
+    with t[2]:
+        tabs.kaart2(r2, data.status)
+if t[5].open:
+    with t[5]:
+        tabs.kaart5(r5, p, data.status)
+if t[6].open:
+    with t[6]:
+        tabs.kaart6(r6, mkb_opties, data.status)
 r8 = k8_batterij.bereken(b, p, dag, r1.P / r1.N, r7.P / r7.N if r7.N else 0 * r7.P, bat_modus)
 
 # Stapeling zonder logistiek (placeholder), in tabvolgorde
@@ -123,7 +135,9 @@ e_kaart = {kaartnaam(k): (float((r.sectoren["teken"] * r.sectoren["E"]).sum()) i
                           float(r.N * r.v.sum() / 4) if k == 8 else
                           (-1 if k == 7 else 1) * r.N * r.E) for k, r in IN_STAPEL.items()}
 rs = stapeling.bereken(P_kaart, e_kaart)
-with t[8]:
-    tabs.kaart8(r8, p, data.status)
-with t[9]:
-    tabs.stapeling(rs, [kleur(k) for k in IN_STAPEL])
+if t[8].open:
+    with t[8]:
+        tabs.kaart8(r8, p, data.status)
+if t[9].open:
+    with t[9]:
+        tabs.stapeling(rs, [kleur(k) for k in IN_STAPEL])
