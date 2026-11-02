@@ -1,0 +1,6 @@
+buurt_code,woningtype,woningen,e_netto_kwh_per_woning
+BU_MOCK_A,Vrijstaand,150,3600
+BU_MOCK_A,2-onder-1-kap,225,3000
+BU_MOCK_A,Hoekwoning,225,2500
+BU_MOCK_A,Tussenwoning,450,2300
+BU_MOCK_A,Appartement,450,1800

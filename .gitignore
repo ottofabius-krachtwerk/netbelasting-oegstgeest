@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+# projectdocumenten, niet in de repo
+netbelastingmodel_whiteboard_export.md
+Rekenkaarten html/

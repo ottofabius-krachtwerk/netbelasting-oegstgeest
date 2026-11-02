@@ -1,0 +1,6 @@
+buurt_code,sector,e_jaar_kwh,profiel,teken
+BU_MOCK_A,Kantoor,900000,sector_kantoor,1
+BU_MOCK_A,Winkel,600000,sector_winkel,1
+BU_MOCK_A,Onderwijs,400000,sector_onderwijs,1
+BU_MOCK_A,Zorg,700000,sector_zorg,1
+BU_MOCK_A,Opwek (zon bedrijven),300000,instraling,-1

@@ -1,0 +1,18 @@
+naam,status,bron
+buurten,mock,
+woningtypen,mock,
+sectoren,mock,
+T,bron,"KNMI uurgegevens, station 215 Voorschoten, di 18-02-2025"
+I,bron,"KNMI uurgegevens (globale straling Q), station 215 Voorschoten, di 18-02-2025"
+prijs,mock,
+nedu_e1a,bron,"NEDU standaardprofielen elektriciteit 2025 v1.00, E1A_AZI_A, di 18-02-2025"
+nedu_g1a_tap,bron,"NEDU standaardprofielen aardgas 2025 v1.00, G1A temperatuurafhankelijk deel, di 18-02-2025, TAC uit KNMI station 215"
+koken,mock,
+ev_ongestuurd,mock,
+ev_slim,mock,
+logistiek_bestel,placeholder,
+logistiek_truck,placeholder,
+sector_kantoor,mock,
+sector_winkel,mock,
+sector_onderwijs,mock,
+sector_zorg,mock,
