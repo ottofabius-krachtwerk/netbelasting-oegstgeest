@@ -11,11 +11,6 @@ def n_ev_huidig(b, p) -> float:
     return p["ev_gemeente_huidig"] * b["personenautos"] / p["autos_gemeente"]
 
 
-def aandeel_buurt(b, p) -> float:
-    """Aandeel van de buurt in de personenauto's van de gemeente."""
-    return b["personenautos"] / p["autos_gemeente"]
-
-
 def e_ev_thuis_huidig(b, p) -> float:
     """Jaarenergie van het huidige thuisladen (correctie op kaart 1)."""
     return n_ev_huidig(b, p) * p["ev_jaarenergie"] * p["ev_aandeel_thuis"] / 100
@@ -37,7 +32,7 @@ class Resultaat:
 
 def bereken(b, p, prof) -> Resultaat:
     n_huidig = n_ev_huidig(b, p)
-    n_extra = p["ev_toename"] * aandeel_buurt(b, p)  # toename in de gemeente, verdeeld als de huidige EV's
+    n_extra = b["ev_toename_pct"] / 100 * b["personenautos"]  # toename per buurt, % van de huidige personenauto's
     N = n_huidig + n_extra
     E = p["ev_e_dag"]
     a = p["slim_aandeel"] / 100

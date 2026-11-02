@@ -2,7 +2,7 @@
 import numpy as np
 import streamlit as st
 
-from model import k1_basis, k2_koken, k3_warmtepomp, k4_laden_auto, k5_logistiek, k6_mkb, k7_zon
+from model import k1_basis, k2_koken, k3_warmtepomp, k4_laden_auto, k5_logistiek, k6_mkb, k7_zon, k8_batterij
 from model import stapeling as stapeling_model
 from model.common import nl
 from ui.charts import H_GROOT, KLEUR, MUTED, TIJD, gestapeld, lijn, staven, waterval
@@ -53,34 +53,42 @@ def kaart1(r: k1_basis.Resultaat, tag) -> None:
     p_en_checks(6, r.P, k, r.checks)
 
 
-def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: float) -> None:
+def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: float, labeltabel) -> None:
     k = kleur(3)
-    q_par = ("buurten", "gas_tapwater_m3", "gas_koken_m3", "calorische_waarde", "ketelrendement")
+    q_par = ("buurten", "gas_tapwater_koken_m3", "calorische_waarde", "ketelrendement")
     cop_par = {"geen": "cop_ae", "all-electric": "cop_ae", "ZLT": "cop_zlt", "MT": "mt_pompfactor"}[r.oplossing]
     _kop(3)
     _formule("P[t] = 4 × N × E × v[t], met E = Q_ref ÷ COP")
-    stap(1, "Aantal woningen N", nl(r.N), "woningen", extra=[("warmteoplossing", r.oplossing)], tag=tag("buurten"),
-         uitleg="Bij 'geen': alleen de huidige warmtepompen, geen extra woningen. Anders alle woningen in de buurt op "
-                "de gekozen warmteoplossing (keuze per buurt in de zijbalk).")
-    ruimte = r.gas - r.gas_tapwater - r.gas_koken
-    stap(2, "Jaarlijkse warmtevraag Q_jaar uit gas", nl(r.q_jaar), "kWh warmte/woning/jaar",
-         waterval(["gas", "−tapwater", "−koken", "ruimte"], [r.gas, -r.gas_tapwater, -r.gas_koken, 0],
-                  ["absolute", "relative", "relative", "total"], "m³"),
-         extra=[("ruimteverwarming", f"{nl(ruimte)} m³"), ("× cal. waarde × ketelrendement",
-                                                           nl(p["calorische_waarde"] * p["ketelrendement"], 2))],
+    stap(1, "Aantal woningen N", nl(r.N), "woningen", extra=[("warmteoplossing", r.oplossing)],
+         tag=tag("buurten", "wp_gemeente") if r.oplossing == "geen" else tag("buurten"),
+         uitleg="Bij 'geen': alleen de huidige warmtepompen, het gemeentetotaal verdeeld naar het aandeel woningen in "
+                "de buurt (eenvoudige verdeelregel, kan verfijnd worden). Anders alle woningen in de buurt op de "
+                "gekozen warmteoplossing (keuze per buurt in de zijbalk).")
+    stap(2, "Warmtevraag uit gas", nl(r.q_jaar_gas), "kWh warmte/woning/jaar",
+         waterval(["gas", "−tapwater en koken", "ruimteverwarming"], [r.gas, -r.gas_tapwater_koken, 0],
+                  ["absolute", "relative", "total"], "m³"),
+         extra=[("× cal. waarde × ketelrendement", nl(p["calorische_waarde"] * p["ketelrendement"], 2))],
          tag=tag(*q_par),
-         uitleg="Gasverbruik per woning min tapwater en koken, omgerekend naar nuttige warmte.")
-    stap(3, "Warmtevraag op de referentiedag Q_ref", nl(r.q_ref, 1), "kWh warmte/woning/dag",
+         uitleg="Gasverbruik per woning min een vast gemiddelde voor tapwater en koken, omgerekend naar nuttige warmte.")
+    lt = labeltabel
+    stap(3, "Labelcorrectie", nl(r.labelfactor, 3), "labelfactor buurt",
+         staven(lt["label"], lt["aandeel_buurt"] * 100, kleuren=[k] * len(lt), eenheid="% adressen", fmt=".0f"),
+         extra=[("Q_jaar", f"{nl(r.q_jaar)} kWh warmte/woning/jaar"),
+                ("factoren", " ".join(f"{l} {nl(f, 2)}" for l, f in zip(lt["label"], lt["factor"])))],
+         tag=tag("energielabels", "labels_buurt"),
+         uitleg="Demo: factor per energielabel, gewogen met de labelverdeling van de buurt en gedeeld door het "
+                "gemeentegemiddelde. Een buurt met de gemeentelijke labelverdeling krijgt factor 1.")
+    stap(4, "Warmtevraag op de referentiedag Q_ref", nl(r.q_ref, 1), "kWh warmte/woning/dag",
          lijn({"T[t]": r.T}, [KLEUR[0]], "°C", fmt=".1f", hlijn=(p["t_stookgrens"], "stookgrens")),
          extra=[("graaddagen", nl(r.gd_ref, 1)),
                 ("dag ÷ gemiddelde dag", nl(r.q_ref * 365 / r.q_jaar, 2) if r.q_jaar else "–"),
                 ("isolatie buurt", f"{nl(p_isolatie)} %")],
          tag=tag(*q_par, "T", "t_stookgrens", "gd_jaar"),
          uitleg="Q_jaar × graaddagen van deze dag ÷ graaddagen per jaar × (1 − isolatie). Graaddagen = stookgrens "
-                "min daggemiddelde temperatuur (KNMI).")
+                "min daggemiddelde temperatuur (KNMI); per jaar: KNMI 2025.")
     if r.band:
         anders = next(n for n in r.band if n != r.vorm_bron)
-        stap(4, "Vorm v: bandbreedte vlak tot G1A", r.vorm_bron, "gebruikt (keuze in de zijbalk)",
+        stap(5, "Vorm v: bandbreedte vlak tot G1A", r.vorm_bron, "gebruikt (keuze in de zijbalk)",
              lijn({n: vv for n, (vv, _) in r.band.items()}, [k, MUTED]),
              extra=[(f"piek {n}", f"{nl(_piek_per_eenheid(r.E, vv), 2)} kW/woning "
                      + ("constant" if np.ptp(vv) == 0 else f"om {TIJD[int(np.argmax(vv))]}"))
@@ -91,17 +99,17 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
                     "temperatuurafhankelijke deel van het NEDU-gasprofiel op deze dag (bovengrens piek).")
     else:
         i = int(np.argmax(r.v))
-        stap(4, "Vorm v (graaduren)", nl(r.v.sum(), 3), "Σ v", lijn({"v[t]": r.v}, [k]),
+        stap(5, "Vorm v (graaduren)", nl(r.v.sum(), 3), "Σ v", lijn({"v[t]": r.v}, [k]),
              extra=[("hoogste kwartier", TIJD[i]), ("max ÷ gemiddeld", nl(r.v.max() * 96, 2))], tag=tag("T", "t_stookgrens"),
              uitleg="Naar rato van het temperatuurverschil met de stookgrens per kwartier (ongewijzigd voor ZLT en MT).")
-    stap(5, "Elektriciteit per woning E = Q_ref ÷ COP", nl(r.E, 2), "kWh/woning/dag",
+    stap(6, "Elektriciteit per woning E = Q_ref ÷ COP", nl(r.E, 2), "kWh/woning/dag",
          extra=[("COP", nl(r.cop, 2)), ("piek", f"{nl(_piek_per_eenheid(r.E, r.v), 2)} kW/woning")],
          tag=tag(cop_par, *q_par),
          uitleg={"geen": "Eén COP voor de hele dag, als all-electric.",
                  "all-electric": "Eén COP voor de hele dag.",
                  "ZLT": "Booster op het ZLT-net: vaste COP.",
                  "MT": "Geen warmtepomp per woning; alleen pompenergie per kWh warmte (placeholder)."}[r.oplossing])
-    stap(6, "Warmteoplossingen naast elkaar", None,
+    stap(7, "Warmteoplossingen naast elkaar", None,
          fig=lijn({o: v.P for o, v in varianten.items()}, KLEUR[:len(varianten)], "kW", fmt=",.0f"),
          extra=[(o, f"{nl(v.P.max())} kW ({nl(_piek_per_eenheid(v.E, v.v), 2)} kW/woning)")
                 for o, v in varianten.items()],
@@ -111,19 +119,19 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
     if r.band:
         fig = lijn({f"{n}{' (gebruikt)' if n == r.vorm_bron else ''}": P for n, (_, P) in r.band.items()},
                    [k if n == r.vorm_bron else MUTED for n in r.band], "kW", H_GROOT, fmt=",.0f")
-    p_en_checks(7, r.P, k, r.checks, fig=fig)
+    p_en_checks(8, r.P, k, r.checks, fig=fig)
 
 
-def kaart4(r: k4_laden_auto.Resultaat, p, tag) -> None:
+def kaart4(r: k4_laden_auto.Resultaat, p, tag, p_ev_toename: float) -> None:
     k = kleur(4)
     _kop(4)
     _formule("P[t] = 4 × N × E × v[t], met v = (1 − a) × v_ongestuurd + a × v_slim")
     stap(1, "Aantal elektrische auto's N", nl(r.N), "auto's",
          staven(["Huidig (jan 2025)", "Toename", "N"], [r.n_huidig, r.n_extra, r.N], k, "auto's"),
-         extra=[("EV toename gemeente", f"{nl(p['ev_toename'])} auto's")],
-         tag=tag("buurten", "ev_toename", "autos_gemeente"),
-         uitleg="Huidige EV's plus de toename. Beide gemeentecijfers verdeeld naar het aandeel van de buurt in de "
-                "personenauto's.")
+         extra=[("EV toename buurt", f"{nl(p_ev_toename)} % van de personenauto's")],
+         tag=tag("buurten", "autos_gemeente"),
+         uitleg="Huidige EV's (632 BEV in de gemeente, verdeeld naar aandeel personenauto's) plus de toename per buurt "
+                "als percentage van de huidige personenauto's in de buurt (zijbalk).")
     stap(2, "Laadenergie per auto E", nl(r.E, 1), "kWh/auto/dag",
          extra=[("× 365", f"{nl(r.E * 365)} kWh/jaar"), (f"jaarwaarde op kaart {kn(1)}", f"{nl(p['ev_jaarenergie'])} kWh")],
          tag=tag("ev_e_dag", "ev_jaarenergie"),
@@ -209,7 +217,7 @@ def kaart5(r: k5_logistiek.Resultaat, p, tag) -> None:
                 fig=gestapeld({n: k.P for n, k in kl.items()}, kleuren, totaal=r.P))
 
 
-def kaart6(r: k6_mkb.Resultaat, tag) -> None:
+def kaart6(r: k6_mkb.Resultaat, opties: dict, tag) -> None:
     df = r.sectoren
     kleuren = KLEUR[:len(df)]
     _kop(6)
@@ -223,15 +231,23 @@ def kaart6(r: k6_mkb.Resultaat, tag) -> None:
          tag=tag(*r.v.keys(), "i_jaar"),
          uitleg="d = deel van het jaar dat op deze dag valt, uit het sectorprofiel. d × 365 > 1: drukker dan een "
                 f"gemiddelde dag. Opwek: uit de instraling, net als kaart {kn(7)}.")
-    stap(3, "Vorm per sector v_s", None, fig=lijn(r.v, kleuren), tag=tag(*r.v.keys()),
-         uitleg="Elke sector zijn eigen vorm; verbruik telt op tot +1, opwek tot −1.")
-    p_en_checks(4, r.P_tot, kleur(6), r.checks, naam="P[t] per sector", fig=gestapeld(r.P, kleuren, totaal=r.P_tot))
+    vorm_tag = tag("nedu_e3") if r.profielbron == "NEDU E3" else tag(*r.v.keys())
+    stap(3, f"Vorm per sector v_s ({r.profielbron})", None, fig=lijn(r.v, kleuren), tag=vorm_tag,
+         uitleg={"Liander": "Liander open data: elke sector een eigen profiel. Verbruik telt op tot +1, opwek tot −1.",
+                 "NEDU E3": "NEDU E3: één profiel voor alle verbruikssectoren (E3A t/m E3D zijn gelijk, bevroren "
+                            "meetdata 2011 tot 2013). Opwek houdt de zonvorm."}[r.profielbron])
+    stap(4, "Twee opties voor de sectorprofielen", None,
+         fig=lijn({n: v.P_tot for n, v in opties.items()}, [KLEUR[0], KLEUR[1]], "kW", fmt=",.0f"),
+         extra=[(n, f"max {nl(v.P_tot.max())} kW om {TIJD[int(np.argmax(v.P_tot))]}") for n, v in opties.items()],
+         tag=tag(*r.v.keys(), "nedu_e3"),
+         uitleg="Zelfde jaarverbruik per sector, andere vorm. Keuze in de zijbalk.")
+    p_en_checks(5, r.P_tot, kleur(6), r.checks, naam="P[t] per sector", fig=gestapeld(r.P, kleuren, totaal=r.P_tot))
 
 
 def stapeling(r: stapeling_model.Resultaat, kleuren: list[str]) -> None:
     i = r.i_piek
     _kop(9)
-    _formule(f"P_buurt[t] = som van P[t] over de kaarten (zonder kaart {kn(5)} en {kn(8)})")
+    _formule(f"P_buurt[t] = som van P[t] over de kaarten (zonder kaart {kn(5)})")
     stap(1, "Piek van de buurt", nl(r.P_tot[i]), "kW", extra=[("om", TIJD[i]), ("laagste", f"{nl(r.P_tot.min())} kW")],
          uitleg="Hoogste kwartier van het gestapelde profiel.")
     stap(2, f"Bijdrage per kaart op het piekkwartier ({TIJD[i]})", None,
@@ -245,6 +261,37 @@ def stapeling(r: stapeling_model.Resultaat, kleuren: list[str]) -> None:
     p_en_checks(4, r.P_tot, KLEUR[0], r.checks, naam="P_buurt[t]", fig=gestapeld(r.P, kleuren, totaal=r.P_tot))
 
 
-def kaart8() -> None:
+def kaart8(r: k8_batterij.Resultaat, p, tag) -> None:
+    k = kleur(8)
     _kop(8)
-    st.caption("Nog niet uitgewerkt")
+    _formule("P[t] = N × v[t], met v in kW per kWh opslagcapaciteit; geen E")
+    stap(1, "Opslagcapaciteit N", nl(r.N), "kWh",
+         extra=[("batterijen", f"{nl(r.batterijen)} (woningen × {nl(p['bat_adoptie'])} %)"),
+                ("capaciteit", f"{nl(p['bat_kwh'], 1)} kWh per batterij")],
+         tag=tag("buurten", "bat_adoptie", "bat_kwh"),
+         uitleg="Woningen × adoptiegraad × capaciteit per batterij.")
+    stap(2, "Geen dagenergie E", None,
+         uitleg="Een batterij verbruikt netto geen energie: de vorm telt op tot ongeveer 0 (iets meer door verliezen).")
+    overschot = float(np.clip(r.pv - r.last, 0, None).sum() / 4)
+    stap(3, "Last en zon per batterijwoning", nl(overschot, 2), "kWh zonoverschot/dag",
+         lijn({f"last (tab {kn(1)})": r.last, f"zon (tab {kn(7)})": r.pv}, [KLEUR[0], KLEUR[3]], "kW", fmt=".2f"),
+         extra=[("zon per batterijwoning", f"{nl(p['bat_kwp_woning'], 1)} kWp")],
+         tag=tag("nedu_e1a", "I", "bat_kwp_woning"),
+         uitleg=f"Gemiddelde woning uit tab {kn(1)} met de zon van één batterijwoning uit tab {kn(7)}. Alleen het "
+                "overschot kan de batterij met zelfconsumptie laden.")
+    stap(4, "Day-ahead prijs", f"{int(r.goedkoop.sum())}", "goedkoopste en duurste kwartieren",
+         lijn({"prijs": r.prijs}, [KLEUR[1]], "€/MWh", fmt=",.0f"), tag=tag("prijs"),
+         extra=[("laden rond", ", ".join(TIJD[i] for i in np.flatnonzero(r.goedkoop)[:3]) + " …"),
+                ("ontladen rond", ", ".join(TIJD[i] for i in np.flatnonzero(r.duur)[:3]) + " …")],
+         uitleg="Alleen voor zelfconsumptie + day-ahead: laden in de goedkoopste en ontladen in de duurste kwartieren; "
+                "aantal = wat nodig is om vol of leeg te gaan.")
+    stap(5, "Vorm v per modus", r.modus, "gebruikt (keuze in de zijbalk)",
+         lijn({m: md.v for m, md in r.modi.items()}, [KLEUR[0], KLEUR[1]], "kW/kWh", fmt=".3f"),
+         extra=[(m, f"Σ v ÷ 4 = {nl(md.v.sum() / 4, 4)}") for m, md in r.modi.items()],
+         tag=tag("bat_c", "bat_eta", "prijs"),
+         uitleg="Zelfconsumptie: laden bij zonoverschot, ontladen bij tekort. Plus day-ahead: daarnaast laden uit het "
+                "net in goedkope kwartieren en ontladen in dure. Positief is laden. Eind-SoC = begin-SoC.")
+    stap(6, "Laadtoestand per modus", None,
+         fig=lijn({m: md.soc * 100 for m, md in r.modi.items()}, [KLEUR[0], KLEUR[1]], "% SoC", fmt=".0f"),
+         tag=tag("bat_c", "bat_eta", "prijs"), uitleg="Hoe vol de batterij is over de dag.")
+    p_en_checks(7, r.P, k, r.checks)

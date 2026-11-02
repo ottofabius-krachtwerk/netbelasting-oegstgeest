@@ -7,8 +7,12 @@ import pandas as pd
 from model.common import TOL, Check, nl, p_kw, vorm
 
 
+PROFIELBRONNEN = ["Liander", "NEDU E3"]  # per sector een eigen profiel, of één E3-profiel voor alle sectoren
+
+
 @dataclass
 class Resultaat:
+    profielbron: str
     sectoren: pd.DataFrame  # sector, teken, e_jaar, d, E
     v: dict
     P: dict
@@ -16,13 +20,15 @@ class Resultaat:
     checks: list[Check]
 
 
-def bereken(p, dag, prof, sectoren: pd.DataFrame) -> Resultaat:
+def bereken(p, dag, prof, sectoren: pd.DataFrame, profielbron: str = "Liander") -> Resultaat:
     groei = 1 + p["groei_niet_huish"] / 100
     rijen, V, P = [], {}, {}
     for _, s in sectoren.iterrows():
         teken = int(s["teken"])
         if s["profiel"] == "instraling":  # opwek: f[t] = I[t] × 0,25 ÷ 1000 ÷ I_jaar, vorm gelijk aan kaart 7
             f = dag["I"].to_numpy(float) * 0.25 / 1000 / p["i_jaar"]
+        elif profielbron == "NEDU E3":
+            f = prof["nedu_e3"].to_numpy(float)
         else:
             f = prof[s["profiel"]].to_numpy(float)
         d = float(f.sum())
@@ -41,4 +47,4 @@ def bereken(p, dag, prof, sectoren: pd.DataFrame) -> Resultaat:
               abs(V[r.sector].sum() - r.teken) <= TOL and bool(np.all(V[r.sector] * r.teken >= -TOL)))
         for r in df.itertuples()
     ]
-    return Resultaat(df, V, P, P_tot, checks)
+    return Resultaat(profielbron, df, V, P, P_tot, checks)

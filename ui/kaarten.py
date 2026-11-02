@@ -37,7 +37,7 @@ def meta(kaart: int) -> tuple[str, str]:
             "laadprofiel per voertuigtype",
             "CBS 85239NED (bestelauto's Zuid-Holland, via bedrijfsvestigingen naar buurt) · laadprofiel ElaadNL "
             "(te bevestigen) · dagenergie: open"),
-        4: ("personenauto's per buurt · huidige BEV gemeente · EV toename · aandeel slim laden · dagenergie per auto · "
+        4: ("personenauto's per buurt · huidige BEV gemeente · EV toename per buurt (% personenauto's) · aandeel slim laden · dagenergie per auto · "
             "laadprofielen ongestuurd en slim",
             "Klimaatmonitor (632 BEV, jan 2025) · CBS Kerncijfers wijken en buurten (personenauto's) · ElaadNL gemeten "
             "aggregaat (dataset open)"),
@@ -46,20 +46,22 @@ def meta(kaart: int) -> tuple[str, str]:
             "(instraling)"),
         6: (f"jaarverbruik per sector per buurt · groei niet-huishoudelijk · sectorprofielen · vorm opwek-sector gelijk "
             f"aan tab {t(7)}",
-            "Klimaatmonitor (verbruik per sector, 36 GWh in 2024) · BAG gebruiksoppervlak (naar buurt) · sectorprofielen "
-            "Liander open data of NEDU E3 (open)"),
-        3: ("woningen en huidige warmtepompen per buurt · gasverbruik per woning · warmteoplossing en isolatie per buurt "
-            f"· graaddagen · vorm (vlak of G1A) · COP · levert energie huidige warmtepompen aan tab {t(1)}",
-            "Klimaatmonitor (gas per woningtype, warmtepompen) · KNMI station 215 (temperatuur, wind, graaddagen) · "
+            "Klimaatmonitor (verbruik per sector, 36 GWh in 2024) · BAG gebruiksoppervlak (naar buurt) · sectorprofielen: "
+            "keuze Liander open data (per sector) of NEDU standaardprofielen elektriciteit 2025 (E3)"),
+        3: ("woningen per buurt · huidige warmtepompen gemeente · gasverbruik per woning · energielabels · warmteoplossing "
+            f"en isolatie per buurt · graaddagen · vorm (vlak of G1A) · COP · levert energie huidige warmtepompen aan tab "
+            f"{t(1)}",
+            "Klimaatmonitor (gas per woningtype, warmtepompen, woningen) · Zonnedakje (energielabels) · KNMI station 215 "
+            "(temperatuur, wind, graaddagen 2025) · "
             "vorm: bandbreedte vlak tot NEDU standaardprofielen aardgas 2025 (G1A, temperatuurafhankelijk deel); "
             "opwekprofiel warmtepomp in uitwerking · COP: open"),
         1: (f"woningen en netto verbruik per woningtype · NEDU-profiel · uit tab {t(7)}: bruto zonopwek huidig · "
             f"uit tab {t(3)}: energie huidige warmtepompen · uit tab {t(4)}: thuisladen huidige EV's",
             "CBS (woningen per woningtype per buurt) · Klimaatmonitor (netto levering per woningtype, 2025) · NEDU "
             "standaardprofielen elektriciteit 2025 (E1A_AZI_A)"),
-        8: (f"woningen · adoptiegraad · capaciteit per batterij · batterijmodus · uit tab {t(1)} en {t(7)}: vormen voor "
-            "zelfconsumptie · day-ahead prijs",
+        8: (f"woningen · adoptiegraad · capaciteit en vermogen per batterij · rendement · batterijmodus · uit tab {t(1)}: "
+            f"last per woning · uit tab {t(7)}: zon per kWp · day-ahead prijs",
             "open (Essent batterijwaardering, literatuur, NL Flex) · day-ahead prijs: mock"),
-        9: (f"P[t] uit tab {t(2)}, {t(4)}, {t(7)}, {t(6)}, {t(3)} en {t(1)} (zonder tab {t(5)} en {t(8)})",
+        9: (f"P[t] uit tab {t(2)}, {t(4)}, {t(7)}, {t(6)}, {t(3)}, {t(1)} en {t(8)} (zonder tab {t(5)})",
             "geen eigen bronnen"),
     }[kaart]

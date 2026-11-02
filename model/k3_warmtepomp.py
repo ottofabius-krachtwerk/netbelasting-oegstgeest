@@ -9,15 +9,37 @@ TECH = {"geen": "ae", "all-electric": "ae", "ZLT": "zlt"}
 VORMEN = ["vlak", "G1A"]  # bandbreedte voor all-electric: volgt stookgedrag gaswoningen, of maximale buffering
 
 
+def labelfactor(labels_buurt, energielabels) -> float:
+    """Factor op de warmtevraag uit de labelverdeling van de buurt; het gemeentegemiddelde is 1.
+
+    Demo: factor_buurt = Σ aandeel_buurt × factor ÷ Σ aandeel_gemeente × factor.
+    """
+    el = energielabels.set_index("label")
+    gem = (el["adressen_gemeente"] * el["factor"]).sum() / el["adressen_gemeente"].sum()
+    lb = labels_buurt.set_index("label")["adressen"].reindex(el.index).fillna(0)
+    if lb.sum() == 0:
+        return 1.0
+    return float((lb * el["factor"]).sum() / lb.sum() / gem)
+
+
+def q_jaar_gas(b, p) -> float:
+    """Warmtevraag per woning uit gas, vóór de labelcorrectie, in kWh."""
+    return (b["gas_m3_per_woning"] - p["gas_tapwater_koken_m3"]) * p["calorische_waarde"] * p["ketelrendement"]
+
+
 def q_jaar(b, p) -> float:
-    """Jaarlijkse warmtevraag per woning uit gas, in kWh."""
-    gas_ruimte = b["gas_m3_per_woning"] - p["gas_tapwater_m3"] - p["gas_koken_m3"]
-    return gas_ruimte * p["calorische_waarde"] * p["ketelrendement"]
+    """Jaarlijkse warmtevraag per woning, met labelcorrectie, in kWh."""
+    return q_jaar_gas(b, p) * b["labelfactor"]
+
+
+def wp_huidig(b, p) -> float:
+    """Huidige warmtepompen in de buurt: gemeentetotaal naar aandeel woningen (eenvoudige verdeelregel)."""
+    return p["wp_gemeente"] * b["woningen"] / p["woningen_gemeente"]
 
 
 def e_wp_huidig(b, p) -> float:
     """Jaarenergie van de bestaande warmtepompen in de buurt (correctie op kaart 1)."""
-    return b["wp_huidig"] * q_jaar(b, p) / p["scop_huidig"]
+    return wp_huidig(b, p) * q_jaar(b, p) / p["scop_huidig"]
 
 
 def cop_dag(oplossing: str, p) -> float:
@@ -37,8 +59,9 @@ class Resultaat:
     oplossing: str
     N: float
     gas: float
-    gas_tapwater: float
-    gas_koken: float
+    gas_tapwater_koken: float
+    q_jaar_gas: float
+    labelfactor: float
     q_jaar: float
     gd_ref: float
     q_ref: float
@@ -55,7 +78,7 @@ class Resultaat:
 def bereken(b, p, dag, prof, oplossing: str | None = None, wp_vorm: str = "vlak") -> Resultaat:
     oplossing = oplossing or b["warmteoplossing"]
     # "geen": geen extra woningen; de bestaande warmtepompen (die uit de basis zijn gehaald) blijven
-    N = float(b["wp_huidig"] if oplossing == "geen" else b["woningen"])
+    N = float(wp_huidig(b, p) if oplossing == "geen" else b["woningen"])
     T = dag["T"].to_numpy(float)
     Q = q_jaar(b, p)
     gd_ref = max(0.0, p["t_stookgrens"] - T.mean())
@@ -77,5 +100,6 @@ def bereken(b, p, dag, prof, oplossing: str | None = None, wp_vorm: str = "vlak"
         t = TECH[oplossing]
         lo, hi = p[f"cop_min_{t}"], p[f"cop_max_{t}"]
         checks.append(Check(f"COP {oplossing} in bereik", nl(c, 2), f"{nl(lo, 1)} tot {nl(hi, 1)}", lo <= c <= hi))
-    return Resultaat(oplossing, N, b["gas_m3_per_woning"], p["gas_tapwater_m3"], p["gas_koken_m3"], Q, gd_ref,
+    return Resultaat(oplossing, N, b["gas_m3_per_woning"], p["gas_tapwater_koken_m3"], q_jaar_gas(b, p),
+                     b["labelfactor"], Q, gd_ref,
                      q_ref, T, vorm_bron, band, c, E, v, P, checks)

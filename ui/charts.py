@@ -55,7 +55,8 @@ def staven(labels, waarden, kleur=KLEUR[0], eenheid: str = "", hoogte: int = H_K
                            hovertemplate=f"%{{x:{fmt}}} {eenheid}<extra>%{{y}}</extra>"))
     fig = _opmaak(fig, hoogte, tijdas=False)
     fig.update_xaxes(title=dict(text=eenheid, font=dict(size=10, color=MUTED)), showgrid=True, gridcolor=GRID)
-    fig.update_yaxes(autorange="reversed", gridcolor="rgba(0,0,0,0)", title=None)
+    fig.update_yaxes(autorange="reversed", gridcolor="rgba(0,0,0,0)", title=None, tickmode="array",
+                     tickvals=list(labels), ticktext=list(labels))
     return fig
 
 

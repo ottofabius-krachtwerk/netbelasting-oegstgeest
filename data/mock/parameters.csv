@@ -1,12 +1,13 @@
 naam,kaart,label,waarde,eenheid,min,max,stap,status,bron
 koken_penetratie_groei,2,Groei penetratie elektrisch koken,0,%,0,100,1,mock,
 koken_e_dag,2,E koken per huishouden,0.6,kWh/dag,0,5,0.05,mock,
-gas_tapwater_m3,3,Gas voor tapwater,250,m³/woning/jaar,0,2000,10,mock,
-gas_koken_m3,3,Gas voor koken,40,m³/woning/jaar,0,500,5,mock,
+gas_tapwater_koken_m3,3,Gas voor tapwater en koken,100,m³/woning/jaar,0,500,5,aanname,Gemiddelde per huishouden (projectaanname)
+wp_gemeente,3,Huidige warmtepompen in gemeente,450,stuks,0,20000,10,mock,Klimaatmonitor: energie-installaties woningen
+woningen_gemeente,3,Woningen in gemeente,11286,woningen,1,50000,1,bron,"Klimaatmonitor, Oegstgeest 2025"
 calorische_waarde,3,Calorische waarde gas,9.77,kWh/m³,8,11,0.01,mock,
 ketelrendement,3,Ketelrendement,0.9,-,0.5,1.1,0.01,mock,
 t_stookgrens,3,Stookgrens,18,°C,10,20,0.5,mock,
-gd_jaar,3,Graaddagen per jaar,2900,graaddagen,1000,4000,10,mock,
+gd_jaar,3,Graaddagen per jaar,2503,graaddagen,1000,4000,1,bron,"KNMI station 215, 2025, basis 18 °C, ongewogen"
 scop_huidig,3,SCOP bestaande warmtepompen,3.5,-,1,7,0.1,mock,
 cop_ae,3,COP all-electric op de referentiedag,3.0,-,1,7,0.1,mock,
 cop_zlt,3,Booster-COP ZLT,4.0,-,1,8,0.1,mock,
@@ -15,7 +16,6 @@ cop_min_ae,3,Bereik dag-COP all-electric (min),2.0,-,1,7,0.1,mock,
 cop_max_ae,3,Bereik dag-COP all-electric (max),5.0,-,1,8,0.1,mock,
 cop_min_zlt,3,Bereik dag-COP ZLT (min),3.0,-,1,8,0.1,mock,
 cop_max_zlt,3,Bereik dag-COP ZLT (max),6.0,-,1,10,0.1,mock,
-ev_toename,4,EV toename (gemeente),0,auto's,0,20000,10,mock,
 ev_gemeente_huidig,4,BEV in gemeente (jan 2025),632,auto's,0,20000,1,bron,"Klimaatmonitor, januari 2025 (volgens kaart 4)"
 autos_gemeente,4,Personenauto's in gemeente,12000,auto's,1,50000,10,mock,
 ev_e_dag,4,E per auto,8,kWh/dag,0,30,0.5,mock,

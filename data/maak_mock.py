@@ -86,6 +86,8 @@ dag = pd.DataFrame({"datum": pd.Timestamp(DATUM).date().isoformat(), "kwartier":
 prof = pd.DataFrame({"kwartier": t, "tijd": tijd})
 prof["nedu_e1a"] = pd.read_csv(BRON / f"nedu_2025_e1a_{DATUM}.csv")["E1A_AZI_A"].to_numpy()
 prof["nedu_g1a_tap"] = g1a_ruimteverwarming()
+# NEDU E3 (E3A t/m E3D zijn gelijk); profiel telt op tot 2 per jaar (normaal + laag), dus ÷ 2
+prof["nedu_e3"] = pd.read_csv(BRON / f"nedu_2025_e3_{DATUM}.csv")["E3A_A"].to_numpy() / 2
 prof["koken"] = ruis(0.02 + 0.15 * gauss(7.5, 0.6) + 0.25 * gauss(12.5, 0.8) + 1.0 * gauss(18.0, 0.9))
 prof["ev_ongestuurd"] = ruis(0.05 + 0.2 * gauss(8.5, 1.0) + 1.0 * gauss(18.5, 1.8))
 prof["ev_slim"] = ruis(0.03 + 1.0 * gauss(2.5, 2.0))
@@ -103,21 +105,33 @@ buurten = pd.DataFrame([{
     "buurt_naam": "Buurt A",
     "woningen": 1500,
     "huishoudens": 1450,
-    "kwp_woningen": 2250,
-    "wp_huidig": 60,
-    "gas_m3_per_woning": 1200,
+    "kwp_woningen": round(1500 * 15_648 / 11_286),  # Zonnedakje gemeente (kWp woningen) naar aandeel woningen
+    "gas_m3_per_woning": 960,  # Klimaatmonitor: gemiddelde Oegstgeest, alle woningen
     "personenautos": 1300,
     "bestelautos": 120,
     "vrachtautos": 10,
     "warmteoplossing": "geen",
     "isolatie_reductie": 0,
+    "ev_toename_pct": 0,
 }])
 
+# Verhoudingen tussen woningtypen zijn mock, geschaald naar het bekende gemeentegemiddelde netto (1.920 kWh)
+_types = [("Vrijstaand", 150, 3600), ("2-onder-1-kap", 225, 3000), ("Hoekwoning", 225, 2500),
+          ("Tussenwoning", 450, 2300), ("Appartement", 450, 1800)]
+_schaal = 1920 / (sum(n * e for _, n, e in _types) / sum(n for _, n, _ in _types))
 woningtypen = pd.DataFrame([
-    {"buurt_code": "BU_MOCK_A", "woningtype": w, "woningen": n, "e_netto_kwh_per_woning": e}
-    for w, n, e in [("Vrijstaand", 150, 3600), ("2-onder-1-kap", 225, 3000), ("Hoekwoning", 225, 2500),
-                    ("Tussenwoning", 450, 2300), ("Appartement", 450, 1800)]
+    {"buurt_code": "BU_MOCK_A", "woningtype": w, "woningen": n, "e_netto_kwh_per_woning": round(e * _schaal, -1)}
+    for w, n, e in _types
 ])
+
+# Energielabels: gemeenteverdeling uit Zonnedakje (adressen met label); factoren en buurtverdeling zijn mock
+energielabels = pd.DataFrame({
+    "label": ["A+", "A", "B", "C", "D", "E", "F", "G"],
+    "factor": [0.6, 0.7, 0.85, 1.0, 1.1, 1.2, 1.3, 1.4],
+    "adressen_gemeente": [701, 2744, 904, 1471, 453, 413, 218, 188],
+})
+labels_buurt = pd.DataFrame({"buurt_code": "BU_MOCK_A", "label": energielabels["label"],
+                             "adressen": [40, 180, 90, 160, 70, 60, 40, 30]})
 
 sectoren = pd.DataFrame([
     {"buurt_code": "BU_MOCK_A", "sector": "Kantoor", "e_jaar_kwh": 900_000, "profiel": "sector_kantoor", "teken": 1},
@@ -132,5 +146,7 @@ dag.to_csv(UIT / "referentiedag.csv", index=False)
 prof.to_csv(UIT / "profielen.csv", index=False)
 buurten.to_csv(UIT / "buurten.csv", index=False)
 woningtypen.to_csv(UIT / "woningtypen.csv", index=False)
+energielabels.to_csv(UIT / "energielabels.csv", index=False)
+labels_buurt.to_csv(UIT / "labels_buurt.csv", index=False)
 sectoren.to_csv(UIT / "sectoren.csv", index=False)
 print("mock geschreven naar", UIT)

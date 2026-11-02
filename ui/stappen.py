@@ -44,9 +44,10 @@ def p_en_checks(nr: int, P, kleur: str, checks: list[Check], naam: str = "P[t]",
     links, rechts = st.columns([1.7, 1])
     i_max, i_min = int(np.argmax(P)), int(np.argmin(P))
     with links, st.container(border=True):
-        st.markdown(f"**{nr} · {naam}** <span style='color:#52514e;font-size:.85rem;margin-left:.5rem'>"
-                    f"max <b>{nl(P[i_max])} kW</b> om {TIJD[i_max]} · min <b>{nl(P[i_min])} kW</b> om {TIJD[i_min]}"
-                    f"</span>", unsafe_allow_html=True)
+        kern = (f"constant <b>{nl(P[0])} kW</b>" if np.ptp(P) < 1e-9 else
+                f"max <b>{nl(P[i_max])} kW</b> om {TIJD[i_max]} · min <b>{nl(P[i_min])} kW</b> om {TIJD[i_min]}")
+        st.markdown(f"**{nr} · {naam}** <span style='color:#52514e;font-size:.85rem;margin-left:.5rem'>{kern}</span>",
+                    unsafe_allow_html=True)
         toon(fig if fig is not None else lijn({naam: P}, [kleur], "kW", H_GROOT, fmt=",.1f", vlak=True))
     with rechts, st.container(border=True):
         st.markdown(f"**{nr + 1} · Checks**")
