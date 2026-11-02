@@ -13,6 +13,7 @@ from ui.kaarten import kleur, kn, meta
 from ui.stappen import badge, kop, p_en_checks, stap
 
 VERLOOP = "% van de dag per kwartier"
+VASTE_WAARDEN = None  # parameters-tabel; gezet door app.py
 
 
 def _piek_per_eenheid(E, v) -> float:
@@ -29,6 +30,30 @@ def _hoogste(v) -> str:
     v = np.asarray(v)
     i = int(np.argmax(np.abs(v)))
     return TIJD[i]
+
+
+def _getal(x: float) -> str:
+    return nl(x) if float(x).is_integer() else nl(x, 2 if abs(x) >= 1 else 3)
+
+
+def _vast(kaart: int) -> None:
+    """Data en aannames van deze tab: niet instelbaar, compact onderaan ter referentie."""
+    if VASTE_WAARDEN is None:
+        return
+    df = VASTE_WAARDEN[(VASTE_WAARDEN["kaart"] == kaart) & (VASTE_WAARDEN["rol"] != "invoer")]
+    if df.empty:
+        return
+    rijen = "".join(
+        f"<tr><td>{r['label']}</td><td class='r'>{_getal(float(r['waarde']))}</td><td>{r['eenheid']}</td>"
+        f"<td>{'data' if r['rol'] == 'data' else 'aanname'}{badge(r['status'])}"
+        f"{' · ' + r['bron'] if isinstance(r['bron'], str) and r['bron'] else ''}</td></tr>"
+        for _, r in df.iterrows())
+    with st.expander(f"Vaste waarden en aannames ({len(df)})"):
+        st.markdown(
+            "<style>.vast{width:100%;border-collapse:collapse;font-size:.76rem;color:#52514e}"
+            ".vast td{border-bottom:1px solid #e1e0d9;padding:3px 6px;vertical-align:top}"
+            ".vast .r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}</style>"
+            f"<table class='vast'>{rijen}</table>", unsafe_allow_html=True)
 
 
 def _kop(kaart: int, extra: str = "") -> None:
@@ -80,16 +105,20 @@ def kaart1(r: k1_basis.Resultaat, tag) -> None:
                 f"alleen in tab {kn(7)} (v).",
          bron="NEDU standaardprofielen elektriciteit 2025 (E1A_AZI_A, 18-02-2025)")
     p_en_checks(6, r.P, k, r.checks)
+    _vast(1)
 
 
 def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: float, labeltabel) -> None:
     k = kleur(3)
     q_par = ("buurten", "gas_tapwater_koken_m3", "calorische_waarde", "ketelrendement")
-    cop_par = {"geen": "cop_ae", "all-electric": "cop_ae", "ZLT": "cop_zlt", "MT": "mt_pompfactor"}[r.oplossing]
+    cop_par = {"geen": ("cop_ae",), "all-electric": ("cop_ae",), "ZLT": ("t_net_zlt", "cop_zlt_a", "cop_zlt_b"),
+               "MT": ()}[r.oplossing]
+    net = r.oplossing in ("ZLT", "MT")
     _kop(3)
     _formule("Profiel = aantal woningen × stroom per woning op deze dag × verloop over de dag; "
-             "stroom = warmtevraag ÷ COP", "P[t] = 4 × N × E × v[t], E = Q_ref ÷ COP")
-    stap(1, "Aantal woningen met een warmtepomp", nl(r.N), "woningen", extra=[("warmteoplossing", r.oplossing)],
+             "stroom = warmtevraag ÷ COP" + (" + pompenergie van het warmtenet" if net else ""),
+             "P[t] = 4 × N × E × v[t], E = Q_ref ÷ COP" + (" + E_pomp" if net else ""))
+    stap(1, "Aantal woningen op de warmteoplossing", nl(r.N), "woningen", extra=[("warmteoplossing", r.oplossing)],
          tag=tag("buurten", "wp_gemeente") if r.oplossing == "geen" else tag("buurten"),
          uitleg="Bij 'geen': alleen de huidige warmtepompen, het gemeentetotaal verdeeld naar het aandeel woningen in "
                 "de buurt (eenvoudige verdeelregel, kan verfijnd worden). Anders alle woningen in de buurt op de "
@@ -133,26 +162,40 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
                     "NEDU-gasprofiel op deze dag (hoogste piek).",
          bron="NEDU standaardprofielen aardgas 2025 (G1A, temperatuurafhankelijk deel) · vlak: aanname · warmtepompprofiel in uitwerking")
     else:
-        stap(5, "Verloop over de dag", _hoogste(r.v), "hoogste kwartier",
-             lijn({"verloop": _pct(r.v)}, [k], VERLOOP, fmt=".2f"), tag=tag("T", "t_stookgrens"),
-             extra=[("hoogste kwartier", f"{nl(r.v.max() * 100, 2)} % van de dag")],
-             uitleg="Naar rato van het verschil tussen buitentemperatuur en stookgrens per kwartier (ongewijzigd voor "
-                    "ZLT en MT).",
-         bron="KNMI station 215 (temperatuur 18-02-2025)")
-    stap(6, "Stroom per woning op deze dag", nl(r.E, 2), "kWh per woning",
-         extra=[("COP", f"{nl(r.cop, 2)} kWh warmte per kWh stroom"),
-                ("piek", f"{nl(_piek_per_eenheid(r.E, r.v), 2)} kW per woning")],
-         tag=tag(cop_par, *q_par),
+        stap(5, "Verloop over de dag: constant", None,
+             lijn({"verloop": _pct(r.v)}, [k], VERLOOP, fmt=".2f"),
+             extra=[("elk kwartier", f"{nl(r.v[0] * 100, 2)} % van de dag")],
+             uitleg="Voor warmtenetten nemen we voorlopig een constant verloop aan. Mogelijke bronnen voor een profiel: "
+                    "het NEDU-gasprofiel G1A (al in de app, voor all-electric) en meetdata van de Installatiemonitor "
+                    "(RVO/BDH; nu alleen dagwaarden gepubliceerd).",
+         bron="aanname (constant)")
+    extra6 = []
+    if r.oplossing != "MT":
+        extra6.append(("warmtepomp" if not net else "booster", f"{nl(r.e_warmtepomp, 2)} kWh (COP {nl(r.cop, 2)})"))
+    if net:
+        extra6.append(("pompen warmtenet", f"{nl(r.e_pomp, 2)} kWh ({nl(p['pomp_w_woning'])} W × 24 uur)"
+                       if r.pomp_invoer == "per woning" else
+                       f"{nl(r.e_pomp, 2)} kWh (totaal {nl(r.e_pomp * r.N / 24)} kW voor de buurt, "
+                       f"verdeeld over {nl(r.N)} woningen)"))
+    extra6.append(("piek", f"{nl(_piek_per_eenheid(r.E, r.v), 2)} kW per woning"))
+    stap(6, "Stroom per woning op deze dag", nl(r.E, 2), "kWh per woning", extra=extra6,
+         tag=tag(*cop_par, "pomp_w_woning", *q_par) if net else tag(*cop_par, *q_par),
          uitleg={"geen": "Warmtevraag op deze dag ÷ één COP voor de hele dag, als all-electric.",
                  "all-electric": "Warmtevraag op deze dag ÷ één COP voor de hele dag.",
-                 "ZLT": "Warmtevraag op deze dag ÷ de COP van de booster op het ZLT-net.",
-                 "MT": "Geen warmtepomp per woning; alleen pompenergie per kWh warmte (placeholder)."}[r.oplossing],
-         bron="stap 4 · COP: bron open")
+                 "ZLT": f"De booster tilt het water van het warmtenet ({nl(p['t_net_zlt'])} °C) op: warmtevraag ÷ COP. "
+                        "De COP hangt lineair af van de nettemperatuur (vaste term + per graad × temperatuur); later "
+                        "beter: Carnot × rendement met de aanvoertemperatuur in de woning. Daarbij een vast "
+                        "pompvermogen (per woning of als totaal voor de buurt), los van de warmtevraag.",
+                 "MT": "Geen warmtepomp per woning: alleen een vast pompvermogen (per woning of als totaal voor de "
+                       "buurt), los van de warmtevraag. Een centrale bron telt (nog) niet mee in het buurtprofiel."}[r.oplossing],
+         bron={"geen": "stap 4 · COP: bron open", "all-electric": "stap 4 · COP: bron open",
+               "ZLT": "stap 4 · nettemperatuur: projectaanname 25 °C · COP-lijn en pompvermogen: bron open",
+               "MT": "pompvermogen: bron open"}[r.oplossing])
     stap(7, "Warmteoplossingen naast elkaar", None,
          fig=lijn({o: v.P for o, v in varianten.items()}, KLEUR[:len(varianten)], "kW", fmt=",.0f"),
          extra=[(o, f"{nl(v.P.max())} kW ({nl(_piek_per_eenheid(v.E, v.v), 2)} kW per woning)")
                 for o, v in varianten.items()],
-         tag=tag("T", *q_par, "cop_ae", "cop_zlt", "mt_pompfactor", "nedu_g1a_tap"),
+         tag=tag("T", *q_par, "cop_ae", "cop_zlt_a", "cop_zlt_b", "pomp_w_woning", "nedu_g1a_tap"),
          uitleg="Dezelfde buurt bij elke warmteoplossing; 'geen' is alleen de huidige warmtepompen.",
          bron="stappen 1 tot en met 6, voor elke warmteoplossing")
     fig = None
@@ -160,6 +203,7 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
         fig = lijn({f"{n}{' (gebruikt)' if n == r.vorm_bron else ''}": P for n, (_, P) in r.band.items()},
                    [k if n == r.vorm_bron else MUTED for n in r.band], "kW", H_GROOT, fmt=",.0f")
     p_en_checks(8, r.P, k, r.checks, fig=fig)
+    _vast(3)
 
 
 def kaart4(r: k4_laden_auto.Resultaat, p, tag, p_ev_toename: float) -> None:
@@ -191,6 +235,7 @@ def kaart4(r: k4_laden_auto.Resultaat, p, tag, p_ev_toename: float) -> None:
                 "gekozen is.",
          bron="ElaadNL gemeten aggregaat (dataset open) · aandeel slim laden: invoer zijbalk")
     p_en_checks(4, r.P, k, r.checks)
+    _vast(4)
 
 
 def kaart7(r: k7_zon.Resultaat, p, tag) -> None:
@@ -219,6 +264,7 @@ def kaart7(r: k7_zon.Resultaat, p, tag) -> None:
          uitleg="Volgt de gemeten instraling per uur; negatief omdat het opwek is.",
          bron="KNMI station 215 (instraling per uur, 18-02-2025)")
     p_en_checks(4, r.P, k, r.checks)
+    _vast(7)
 
 
 def _type_a(nr_kleur: int, r, zin: str, symbolen: str, n_titel: str, n_eenheid: str, n_uitleg: str, e_titel: str,
@@ -253,6 +299,7 @@ def kaart2(r: k2_koken.Resultaat, tag) -> None:
              "bron als het verloop",
              "kookprofiel: bron open (Liander/BAT, monitoring aardgasvrije wijken, TNO of Milieu Centraal; terugval UK "
              "Household Electricity Survey)"))
+    _vast(2)
 
 
 def kaart5(r: k5_logistiek.Resultaat, p, tag) -> None:
@@ -280,6 +327,7 @@ def kaart5(r: k5_logistiek.Resultaat, p, tag) -> None:
          bron="ElaadNL laadprofiel logistiek (te bevestigen)")
     p_en_checks(4, r.P, kleur(5), r.checks, naam="Profiel per voertuigtype",
                 fig=gestapeld({n: k.P for n, k in kl.items()}, kleuren, totaal=r.P))
+    _vast(5)
 
 
 def kaart6(r: k6_mkb.Resultaat, opties: dict, tag) -> None:
@@ -314,6 +362,7 @@ def kaart6(r: k6_mkb.Resultaat, opties: dict, tag) -> None:
          uitleg="Zelfde jaarverbruik per sector, ander verloop. Keuze in de zijbalk.",
          bron="Liander open data en NEDU standaardprofielen elektriciteit 2025 (E3)")
     p_en_checks(5, r.P_tot, kleur(6), r.checks, naam="Profiel per sector", fig=gestapeld(r.P, kleuren, totaal=r.P_tot))
+    _vast(6)
 
 
 def stapeling(r: stapeling_model.Resultaat, kleuren: list[str]) -> None:
@@ -379,3 +428,4 @@ def kaart8(r: k8_batterij.Resultaat, p, tag) -> None:
          tag=tag("bat_c", "bat_eta", "prijs"), uitleg="Hoe vol de batterij is over de dag.",
          bron="stap 5")
     p_en_checks(7, r.P, k, r.checks)
+    _vast(8)

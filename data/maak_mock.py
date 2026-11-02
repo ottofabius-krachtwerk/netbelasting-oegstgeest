@@ -113,6 +113,7 @@ buurten = pd.DataFrame([{
     "warmteoplossing": "geen",
     "isolatie_reductie": 0,
     "ev_toename_pct": 0,
+    "pomp_kw_buurt": 75,  # mock: 1.500 woningen × 50 W
 }])
 
 # Verhoudingen tussen woningtypen zijn mock, geschaald naar het bekende gemeentegemiddelde netto (1.920 kWh)

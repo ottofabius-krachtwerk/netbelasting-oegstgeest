@@ -49,7 +49,8 @@ def meta(kaart: int) -> tuple[str, str]:
             "Klimaatmonitor (verbruik per sector, 36 GWh in 2024) · BAG gebruiksoppervlak (naar buurt) · sectorprofielen: "
             "keuze Liander open data (per sector) of NEDU standaardprofielen elektriciteit 2025 (E3)"),
         3: ("woningen per buurt · huidige warmtepompen gemeente · gasverbruik per woning · energielabels · warmteoplossing "
-            f"en isolatie per buurt · graaddagen · verloop (vlak of G1A) · COP · levert energie huidige warmtepompen aan tab "
+            f"en isolatie per buurt · graaddagen · verloop · COP · temperatuur en pompvermogen warmtenet · levert energie "
+            f"huidige warmtepompen aan tab "
             f"{t(1)}",
             "Klimaatmonitor (gas per woningtype, warmtepompen, woningen) · Zonnedakje (energielabels) · KNMI station 215 "
             "(temperatuur, wind, graaddagen 2025) · "

@@ -54,6 +54,11 @@ with st.sidebar:
                                                 key=f"{bron}:wo:{code}")
             b["isolatie_reductie"] = st.number_input(f"Isolatie {buurt} (% minder warmtevraag per woning dan nu)", 0.0, 80.0,
                                                      float(b["isolatie_reductie"]), 1.0, key=f"{bron}:iso:{code}")
+            keuzes["pomp_invoer"] = st.radio("Pompvermogen warmtenet opgeven als", k3_warmtepomp.POMPINVOER,
+                                             horizontal=True, key=f"{bron}:pompinvoer")
+            if keuzes["pomp_invoer"] == "totaal buurt":
+                b["pomp_kw_buurt"] = st.number_input(f"Totaal pompvermogen warmtenet {buurt} (kW, constant)", 0.0,
+                                                     5000.0, float(b["pomp_kw_buurt"]), 5.0, key=f"{bron}:pomp:{code}")
             keuzes["wp_vorm"] = st.radio("Vorm warmtepomp (all-electric)", k3_warmtepomp.VORMEN, horizontal=True,
                                          format_func=lambda v: {"G1A": "G1A (bovengrens)", "vlak": "vlak (ondergrens)"}[v],
                                          key=f"{bron}:wpvorm")
@@ -68,7 +73,10 @@ with st.sidebar:
 
     p = {}
     for kaart in VOLGORDE:
-        rijen = data.parameters[data.parameters["kaart"] == kaart]
+        alle = data.parameters[data.parameters["kaart"] == kaart]
+        for naam, r in alle[alle["rol"] != "invoer"].iterrows():  # data en aannames: vast, getoond onderaan de tab
+            p[naam] = float(r["waarde"])
+        rijen = alle[alle["rol"] == "invoer"]
         if rijen.empty and kaart not in (3, 4, 6, 8):
             continue
         with st.expander(kaartnaam(kaart).replace(" ", " · ", 1), expanded=kaart == ACTIEF):
@@ -81,6 +89,7 @@ with st.sidebar:
     wp_vorm, mkb_bron, bat_modus = keuzes["wp_vorm"], keuzes["mkb_bron"], keuzes["bat_modus"]
 
 dag, prof = data.dag, data.profielen
+tabs.VASTE_WAARDEN = data.parameters
 lb = data.labels_buurt[data.labels_buurt["buurt_code"] == code]
 b["labelfactor"] = k3_warmtepomp.labelfactor(lb, data.energielabels)
 labeltabel = data.energielabels.merge(lb[["label", "adressen"]], on="label", how="left").fillna({"adressen": 0})
@@ -94,8 +103,8 @@ st.markdown(kop + ("  :gray-badge[mockdata]" if bron == "mock" else ""))
 
 # Tabkeuze met rerun: de zijbalk opent de groep van de gekozen tab, en alleen die tab wordt opgebouwd
 t = dict(zip(TABLABEL, st.tabs(list(TABLABEL.values()), key="tabkeuze", on_change="rerun")))
-r3 = k3_warmtepomp.bereken(b, p, dag, prof, wp_vorm=wp_vorm)
-varianten = {o: k3_warmtepomp.bereken(b, p, dag, prof, o, wp_vorm) for o in WARMTEOPLOSSINGEN}
+r3 = k3_warmtepomp.bereken(b, p, dag, prof, wp_vorm=wp_vorm, pomp_invoer=keuzes["pomp_invoer"])
+varianten = {o: k3_warmtepomp.bereken(b, p, dag, prof, o, wp_vorm, keuzes["pomp_invoer"]) for o in WARMTEOPLOSSINGEN}
 r4 = k4_laden_auto.bereken(b, p, prof)
 r7 = k7_zon.bereken(b, p, dag)
 r2 = k2_koken.bereken(b, p, prof)

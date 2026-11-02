@@ -9,7 +9,7 @@ DATA = Path(__file__).resolve().parent.parent / "data"
 SCHEMA = {
     "buurten.csv": ["buurt_code", "buurt_naam", "woningen", "huishoudens", "kwp_woningen", "gas_m3_per_woning",
                     "personenautos", "bestelautos", "vrachtautos", "warmteoplossing", "isolatie_reductie",
-                    "ev_toename_pct"],
+                    "ev_toename_pct", "pomp_kw_buurt"],
     "energielabels.csv": ["label", "factor", "adressen_gemeente"],
     "labels_buurt.csv": ["buurt_code", "label", "adressen"],
     "woningtypen.csv": ["buurt_code", "woningtype", "woningen", "e_netto_kwh_per_woning"],
@@ -17,7 +17,7 @@ SCHEMA = {
     "referentiedag.csv": ["datum", "kwartier", "tijd", "T", "I", "prijs"],
     "profielen.csv": ["kwartier", "tijd", "nedu_e1a", "nedu_g1a_tap", "nedu_e3", "koken", "ev_ongestuurd", "ev_slim", "logistiek_bestel",
                       "logistiek_truck"],
-    "parameters.csv": ["naam", "kaart", "label", "waarde", "eenheid", "min", "max", "stap", "status", "bron"],
+    "parameters.csv": ["naam", "kaart", "rol", "label", "waarde", "eenheid", "min", "max", "stap", "status", "bron"],
     "status.csv": ["naam", "status", "bron"],
 }
 RANG = {"bron": 0, "aanname": 0, "mock": 1, "placeholder": 2}
