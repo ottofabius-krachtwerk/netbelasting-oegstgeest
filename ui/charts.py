@@ -49,6 +49,18 @@ def lijn(reeksen: dict, kleuren=None, eenheid: str = "", hoogte: int = H_KLEIN, 
     return fig
 
 
+def balans(verbruik, opwek, netto, kleuren, eenheid: str = "kW", hoogte: int = H_GROOT,
+           namen=("verbruik", "opwek", "netto")) -> go.Figure:
+    """Verbruik (vlak boven 0) en opwek (vlak onder 0) in één figuur, met het netto profiel als dikke lijn."""
+    fig = go.Figure()
+    for naam, y, k, vlak in zip(namen, (verbruik, opwek, netto), kleuren, (True, True, False)):
+        fig.add_scatter(x=UUR, y=np.asarray(y), name=naam, mode="lines", customdata=TIJD,
+                        line=dict(color=k, width=1 if vlak else 2.5, shape="hv"),
+                        fill="tozeroy" if vlak else None, fillcolor=k + "40",
+                        hovertemplate=f"%{{y:,.0f}} {eenheid}<extra>{naam}</extra>")
+    return _opmaak(fig, hoogte, eenheid, legenda=True)
+
+
 def staven(labels, waarden, kleur=KLEUR[0], eenheid: str = "", hoogte: int = H_KLEIN, fmt: str = ",.0f",
            kleuren=None) -> go.Figure:
     fig = go.Figure(go.Bar(y=list(labels), x=list(waarden), orientation="h", marker_color=kleuren or kleur,

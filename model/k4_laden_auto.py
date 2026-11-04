@@ -1,4 +1,7 @@
-"""Kaart 4: Laden personenauto's. v = (1 − a) × v_ongestuurd + a × v_slim."""
+"""Kaart 4: Laden personenauto's, alleen de extra EV's. v = (1 − a) × v_ongestuurd + a × v_slim.
+
+Het laden van de huidige EV's zit in het netto verbruik van kaart 1 (woningen basis).
+"""
 from dataclasses import dataclass
 
 import numpy as np
@@ -6,21 +9,9 @@ import numpy as np
 from model.common import TOL, Check, checks_standaard, nl, p_kw, vorm
 
 
-def n_ev_huidig(b, p) -> float:
-    """Huidige BEV in de buurt: gemeentetotaal naar aandeel personenauto's."""
-    return p["ev_gemeente_huidig"] * b["personenautos"] / p["autos_gemeente"]
-
-
-def e_ev_thuis_huidig(b, p) -> float:
-    """Jaarenergie van het huidige thuisladen (correctie op kaart 1)."""
-    return n_ev_huidig(b, p) * p["ev_jaarenergie"] * p["ev_aandeel_thuis"] / 100
-
-
 @dataclass
 class Resultaat:
     N: float
-    n_huidig: float
-    n_extra: float
     E: float
     a: float
     v_ongestuurd: np.ndarray
@@ -31,9 +22,7 @@ class Resultaat:
 
 
 def bereken(b, p, prof) -> Resultaat:
-    n_huidig = n_ev_huidig(b, p)
-    n_extra = b["ev_toename_pct"] / 100 * b["personenautos"]  # toename per buurt, % van de huidige personenauto's
-    N = n_huidig + n_extra
+    N = float(b["ev_extra"])  # toename per buurt, aantal extra EV's (invoer)
     E = p["ev_e_dag"]
     a = p["slim_aandeel"] / 100
     vo, vs = vorm(prof["ev_ongestuurd"]), vorm(prof["ev_slim"])
@@ -42,6 +31,5 @@ def bereken(b, p, prof) -> Resultaat:
     checks = checks_standaard(P, N, E, v, +1) + [
         Check("Ongestuurd verloop telt op tot 100 % (Σ v_ongestuurd)", nl(vo.sum(), 6), "1", abs(vo.sum() - 1) <= TOL),
         Check("Slim verloop telt op tot 100 % (Σ v_slim)", nl(vs.sum(), 6), "1", abs(vs.sum() - 1) <= TOL),
-        Check("Niet meer EV's dan personenauto's in de buurt", nl(N), f"≤ {nl(b['personenautos'])}", N <= b["personenautos"]),
     ]
-    return Resultaat(N, n_huidig, n_extra, E, a, vo, vs, v, P, checks)
+    return Resultaat(N, E, a, vo, vs, v, P, checks)

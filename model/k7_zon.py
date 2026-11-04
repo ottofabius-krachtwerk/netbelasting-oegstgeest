@@ -1,37 +1,43 @@
-"""Kaart 7: Zonne-opwek. Type C: E > 0, Σ v = −1. E = Y_jaar × I_ref ÷ I_jaar."""
+"""Kaart 7: Zonne-opwek, alleen de toename. Type C: N = extra jaaropwek, E = deel van het jaar op deze dag, Σ v = −1.
+
+N = resterende dakpotentie van de buurt (alle daken, Zonnedakje) × benutting (%). E = I_ref ÷ I_jaar: de opwek volgt
+de instraling. De huidige zon telt in kaart 1 (woningen) en kaart 6 (bedrijven).
+"""
 from dataclasses import dataclass
 
 import numpy as np
 
-from model.common import Check, checks_standaard, instraling_dag, nl, p_kw, zonvorm
+from model.common import TOL, Check, checks_standaard, instraling_dag, nl, p_kw, zonvorm
 
 
-def e_zon_bruto(b, p) -> float:
-    """Bruto jaaropwek van de huidige zon bij woningen (correctie op kaart 1)."""
-    return b["kwp_woningen"] * p["zon_opbrengst"]
+def opwek_dag(p, dag) -> tuple[np.ndarray, float, float, np.ndarray]:
+    """Instraling, I_ref, deel van de jaaropwek op deze dag en verloop; gedeeld door kaart 1, 7 en 8."""
+    I = dag["I"].to_numpy(float)
+    i_ref = instraling_dag(I)
+    return I, i_ref, i_ref / p["i_jaar"], zonvorm(I)
 
 
 @dataclass
 class Resultaat:
-    N: float
-    n_huidig: float
+    N: float         # extra jaaropwek in de buurt, kWh/jaar
+    potentie: float  # resterende dakpotentie, kWh/jaar
+    benutting: float  # % van de potentie
     I: np.ndarray
     i_ref: float
-    E: float
+    E: float         # deel van de jaaropwek op deze dag
     v: np.ndarray
     P: np.ndarray
+    per_kwp: np.ndarray  # kW per kWp (negatief = opwek), voor de thuisbatterij
     checks: list[Check]
 
 
 def bereken(b, p, dag) -> Resultaat:
-    n_huidig = float(b["kwp_woningen"])
-    N = n_huidig * (1 + p["zon_groei"] / 100)
-    I = dag["I"].to_numpy(float)
-    i_ref = instraling_dag(I)
-    E = p["zon_opbrengst"] * i_ref / p["i_jaar"]
-    v = zonvorm(I)
+    potentie, benutting = float(b["zon_potentie_kwh_jaar"]), float(b["zon_benutting_pct"])
+    N = potentie * benutting / 100
+    I, i_ref, E, v = opwek_dag(p, dag)
     P = p_kw(N, E, v)
     checks = checks_standaard(P, N, E, v, -1) + [
-        Check("Opbrengst per kWp ≤ instraling (performance ratio ≤ 1)", f"{nl(E, 3)} kWh/kWp", f"≤ {nl(i_ref, 3)}", E <= i_ref),
+        Check("Deel van de jaaropwek op deze dag tussen 0 en 100 %", f"{nl(E * 100, 3)} %", "0 tot 100",
+              -TOL <= E <= 1 + TOL),
     ]
-    return Resultaat(N, n_huidig, I, i_ref, E, v, P, checks)
+    return Resultaat(N, potentie, benutting, I, i_ref, E, v, P, p_kw(p["zon_opbrengst"], E, v), checks)

@@ -8,7 +8,7 @@ import streamlit as st
 from model import k1_basis, k2_koken, k3_warmtepomp, k4_laden_auto, k5_logistiek, k6_mkb, k7_zon, k8_batterij
 from model import stapeling as stapeling_model
 from model.common import nl
-from ui.charts import H_GROOT, KLEUR, MUTED, TIJD, gestapeld, lijn, staven, waterval
+from ui.charts import H_GROOT, KLEUR, MUTED, TIJD, balans, gestapeld, lijn, staven, waterval
 from ui.kaarten import kleur, kn, meta
 from ui.stappen import badge, kop, p_en_checks, stap
 
@@ -67,63 +67,110 @@ def _formule(zin: str, symbolen: str) -> None:
                 unsafe_allow_html=True)
 
 
-def kaart1(r: k1_basis.Resultaat, tag) -> None:
+def kaart1(r: k1_basis.Resultaat, p, dag, tag) -> None:
     k = kleur(1)
     _kop(1)
-    _formule("Profiel = aantal woningen × verbruik per woning op deze dag × verloop over de dag",
-             "P[t] = 4 × N × E × v[t]")
+    _formule("Profiel = verbruik van de woningen op deze dag − opwek van de huidige zonnepanelen op deze dag",
+             "P[t] = 4 × N × E × v[t] + 4 × E_zon,jaar × f_zon × v_zon[t], Σ v = +1, Σ v_zon = −1")
+    t = r.types
+    # A · jaarverbruik
     stap(1, "Aantal woningen", nl(r.N), "woningen", tag=tag("woningtypen"),
-         uitleg="Som van de woningen per woningtype in de buurt (CBS).",
+         reken=[" + ".join(nl(n) for n in t["woningen"]) + f" = {nl(r.N)} woningen"],
+         uitleg="Som van de woningen per woningtype in de buurt.",
          bron="CBS (woningen per woningtype per buurt)")
-    stap(2, "Netto jaarverbruik per woningtype", nl(r.e_netto / 1e3), "MWh/jaar",
-         staven(r.types["woningtype"], r.types["e_netto_kwh"] / 1e3, k, "MWh/jaar"), tag=tag("woningtypen"),
-         uitleg="Aantal woningen × netto verbruik per woning (Klimaatmonitor: levering min teruglevering).",
-         bron="Klimaatmonitor (netto levering per woningtype, PC6, 2025) × CBS (woningen per woningtype)")
-    mwh = [r.e_netto / 1e3, r.e_zon_bruto / 1e3, -r.e_wp_huidig / 1e3, -r.e_ev_thuis_huidig / 1e3, 0]
-    stap(3, "Van netto naar huishoudelijk jaarverbruik", nl(r.e_jaar_buurt / 1e3), "MWh/jaar",
-         waterval(["netto", f"+zon (tab {kn(7)})", f"−warmtepompen (tab {kn(3)})", f"−thuisladen (tab {kn(4)})",
-                   "huishoudelijk"], mwh, ["absolute", "relative", "relative", "relative", "total"], "MWh"),
-         extra=[("per woning", f"{nl(r.e_jaar)} kWh/jaar")],
-         tag=tag("woningtypen", "buurten", "zon_opbrengst", "scop_huidig", "gas_tapwater_koken_m3", "ev_jaarenergie",
-                 "ev_aandeel_thuis", "autos_gemeente"),
-         uitleg="Zonnestroom die woningen zelf gebruiken zit niet in het netto verbruik, dus die komt erbij. Het "
-                "verbruik van bestaande warmtepompen en thuisladen gaat eraf: dat rekenen tab "
-                f"{kn(3)} en {kn(4)} volledig zelf. De opwek zelf staat in tab {kn(7)}.",
-         bron=f"stap 2; tab {kn(7)} (bruto zonopwek huidig); tab {kn(3)} (huidige warmtepompen); tab {kn(4)} (thuisladen huidige EV's)")
-    stap(4, "Verbruik per woning op deze dag", nl(r.E, 2), "kWh per woning",
-         extra=[("deel van het jaarverbruik", f"{nl(r.d * 100, 3)} %"),
-                ("ten opzichte van een gemiddelde dag", f"{nl(r.d * 365, 2)} ×")],
-         tag=tag("nedu_e1a"),
-         uitleg="Het NEDU-standaardprofiel zegt welk deel van het jaarverbruik op deze dag valt "
-                "(E = E_jaar × d).",
+    stap(2, "Netto jaarverbruik", nl(r.e_netto / 1e3), "MWh/jaar", tag=tag("woningtypen"),
+         reken=[f"{w}: {nl(n)} woningen × {nl(e)} kWh = {nl(n * e / 1e3)} MWh"
+                for w, n, e in zip(t["woningtype"], t["woningen"], t["e_netto_kwh_per_woning"])]
+               + [f"totaal: {nl(r.e_netto / 1e3)} MWh"],
+         uitleg="Per woningtype: aantal woningen × netto verbruik per woning (levering min teruglevering). Het netto "
+                "verbruik bevat ook de huidige warmtepompen en het thuisladen van de huidige EV's; de tabs "
+                f"{kn(4)} en {kn(3)} rekenen alleen de toename.",
+         bron="Klimaatmonitor (netto levering per woningtype, PC6, 2025) × CBS (woningen per woningtype)",
+         noot="nagaan of de Klimaatmonitor het netto verbruik per woning op 0 afkapt, zoals CBS 81528NED. Dan wordt "
+              "het bruto verbruik in stap 4 te hoog bij woningen die meer opwekken dan ze verbruiken; te controleren "
+              "met de opwek per woningtype uit Zonnedakje.")
+    stap(3, "Bruto zonopwek huidige panelen per jaar", nl(r.e_zon_bruto / 1e3), "MWh/jaar", tag=tag("buurten"),
+         uitleg="Alle opwek van de huidige panelen bij woningen, ook wat de woningen zelf gebruiken. Extra panelen "
+                f"staan in tab {kn(7)}.",
+         bron="Zonnedakje (jaaropwek per pand, alleen woningen)",
+         noot="Zonnedakje geeft alle daken; hier tellen alleen woningen (BAG-gebruiksdoel woonfunctie, staat al in "
+              "Zonnedakje). Gemengde panden: verdelen naar gebruiksoppervlakte per functie of toewijzen aan de "
+              f"grootste functie (keuze open). De overige daken gaan naar tab {kn(6)}. Zelfde jaar als het netto "
+              "verbruik (2025) en de opwek van geplaatste panelen, niet het dakpotentieel.")
+    stap(4, "Bruto jaarverbruik", nl(r.e_jaar_buurt / 1e3), "MWh/jaar",
+         tag=tag("woningtypen", "buurten"),
+         reken=[f"{nl(r.e_netto / 1e3)} MWh netto + {nl(r.e_zon_bruto / 1e3)} MWh zon = {nl(r.e_jaar_buurt / 1e3)} MWh",
+                f"per woning: {nl(r.e_jaar_buurt / 1e3)} MWh ÷ {nl(r.N)} woningen = {nl(r.e_jaar)} kWh"],
+         uitleg="In het netto verbruik is de zon over het hele jaar al afgetrokken. De volledige bruto opwek komt er "
+                "weer bij; zo ontstaat het werkelijke verbruik. De opwek gaat er in stap 8 weer af, met het verloop "
+                "van deze winterdag.",
+         bron="stap 2 en 3")
+    # B · verbruik op deze dag
+    stap(5, "Deel van het jaarverbruik op deze dag", nl(r.d * 100, 3), "%", tag=tag("nedu_e1a"),
+         reken=[f"d = {nl(r.d * 100, 3)} % (som van NEDU E1A_AZI_A over 18-02-2025)",
+                f"gemiddelde dag: 1 ÷ 365 = {nl(100 / 365, 3)} %",
+                f"{nl(r.d * 100, 3)} % ÷ {nl(100 / 365, 3)} % = {nl(r.d * 365, 2)} × een gemiddelde dag"],
+         uitleg="NEDU-profiel voor woningen zonder teruglevering, dus zonder zon in het verloop; dat past bij het "
+                "bruto jaarverbruik. Aanname: de warmtepompen en EV's in de NEDU-steekproef (2021 tot 2023) zijn zo "
+                "weinig dat deze fractie ook voor de buurt geldt.",
+         bron="NEDU standaardprofielen elektriciteit 2025 (E1A_AZI_A, 18-02-2025)",
+         noot="bij NEDU nagaan hoeveel woningen met warmtepomp of EV in de steekproef voor E1A_AZI_A zaten (2021 tot "
+              "2023). Bij een groot aandeel is de fractie voor puur huishoudelijk verbruik lager.")
+    stap(6, "Verbruik op deze dag", nl(r.N * r.E), "kWh", tag=tag("nedu_e1a"),
+         fig=lijn({"verbruik": r.P_verbruik}, [MUTED], "kW", fmt=",.0f", vlak=True),
+         reken=[f"{nl(r.e_jaar)} kWh × {nl(r.d * 100, 3)} % = {nl(r.E, 2)} kWh per woning",
+                f"{nl(r.N)} woningen × {nl(r.E, 2)} kWh = {nl(r.N * r.E)} kWh",
+                f"hoogste kwartier {_hoogste(r.v)}: {nl(r.v.max() * 100, 2)} % van de dag → "
+                f"4 × {nl(r.N * r.E)} kWh × {nl(r.v.max() * 100, 2)} % = {nl(r.P_verbruik.max())} kW"],
+         uitleg="Het verloop volgt hetzelfde NEDU-profiel (E1A_AZI_A) per kwartier.",
          bron="NEDU standaardprofielen elektriciteit 2025 (E1A_AZI_A, 18-02-2025)")
-    stap(5, "Verloop over de dag", _hoogste(r.v), "hoogste kwartier",
-         lijn({"huishoudens": _pct(r.v)}, [k], VERLOOP, fmt=".2f"), tag=tag("nedu_e1a"),
-         extra=[("hoogste kwartier", f"{nl(r.v.max() * 100, 2)} % van de dag")],
-         uitleg="NEDU-profiel E1A_AZI_A: huishoudens zonder teruglevering. Gekozen omdat het jaarverbruik hierboven het "
-                "bruto huishoudverbruik is; zo zit er geen eigen verbruik van zon in het verloop, en telt de opwek "
-                f"alleen in tab {kn(7)} (v).",
-         bron="NEDU standaardprofielen elektriciteit 2025 (E1A_AZI_A, 18-02-2025)")
-    p_en_checks(6, r.P, k, r.checks)
+    # C · opwek op deze dag
+    e_zon_dag = r.e_zon_bruto * r.f_zon
+    i_ref = r.f_zon * p["i_jaar"]
+    stap(7, "Deel van de jaaropwek op deze dag", nl(r.f_zon * 100, 3), "%", tag=tag("I", "i_jaar"),
+         fig=lijn({"instraling": dag["I"].to_numpy(float)}, [kleur(7)], "W/m²", fmt=",.0f"),
+         reken=[f"{nl(i_ref, 2)} kWh/m² ÷ {nl(p['i_jaar'])} kWh/m² = {nl(r.f_zon * 100, 3)} %",
+                f"{nl(r.f_zon * 100, 3)} % ÷ {nl(100 / 365, 3)} % = {nl(r.f_zon * 365, 2)} × een gemiddelde dag"],
+         uitleg="Instraling op deze dag ÷ instraling per jaar: de opwek volgt de gemeten zon van deze winterdag, niet "
+                "het jaargemiddelde.",
+         bron="KNMI station 215 (instraling 18-02-2025; instraling per jaar)")
+    i_zon = int(np.argmin(r.P_zon))
+    stap(8, "Opwek huidige panelen op deze dag", nl(e_zon_dag), "kWh", tag=tag("buurten", "I"),
+         fig=lijn({"opwek": r.P_zon}, [kleur(7)], "kW", fmt=",.0f", vlak=True),
+         reken=[f"{nl(r.e_zon_bruto / 1e3)} MWh × {nl(r.f_zon * 100, 3)} % = {nl(e_zon_dag)} kWh",
+                *([f"meeste opwek {TIJD[i_zon]}: {nl(-r.P_zon[i_zon])} kW"] if r.P_zon[i_zon] < 0 else [])],
+         uitleg="Het verloop volgt de instraling per kwartier; negatief omdat het opwek is. Zelfde rekenwijze als "
+                f"tab {kn(7)}.",
+         bron="Zonnedakje (jaaropwek) · KNMI station 215 (instraling 18-02-2025)")
+    # D · netto profiel
+    i_max, i_min = int(np.argmax(r.P)), int(np.argmin(r.P))
+    reken = [f"{w} {TIJD[i]}: {nl(r.P_verbruik[i])} kW verbruik − {nl(-r.P_zon[i])} kW opwek = {nl(r.P[i])} kW"
+             for w, i in (("hoogste", i_max), ("laagste", i_min))]
+    reken.append(f"dag: {nl(r.N * r.E)} kWh verbruik − {nl(e_zon_dag)} kWh opwek = {nl(r.e_dag)} kWh")
+    fig = balans(r.P_verbruik, r.P_zon, r.P, [MUTED, kleur(7), k], namen=("verbruik (stap 6)", "opwek (stap 8)", "netto"))
+    p_en_checks(9, r.P, k, r.checks, naam="Netto profiel: verbruik − opwek", fig=fig, reken=reken)
     _vast(1)
 
 
-def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: float, labeltabel) -> None:
+def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: float) -> None:
     k = kleur(3)
     q_par = ("buurten", "gas_tapwater_koken_m3", "calorische_waarde", "ketelrendement")
     cop_par = {"geen": ("cop_ae",), "all-electric": ("cop_ae",), "ZLT": ("t_net_zlt", "cop_zlt_a", "cop_zlt_b"),
-               "MT": ()}[r.oplossing]
+               "MT": ("cop_mt_wp",) if r.mt_opwek == "grote warmtepomp" else ()}[r.oplossing]
     net = r.oplossing in ("ZLT", "MT")
     _kop(3)
     _formule("Profiel = aantal woningen × stroom per woning op deze dag × verloop over de dag; "
              "stroom = warmtevraag ÷ COP" + (" + pompenergie van het warmtenet" if net else ""),
              "P[t] = 4 × N × E × v[t], E = Q_ref ÷ COP" + (" + E_pomp" if net else ""))
-    stap(1, "Aantal woningen op de warmteoplossing", nl(r.N), "woningen", extra=[("warmteoplossing", r.oplossing)],
-         tag=tag("buurten", "wp_gemeente") if r.oplossing == "geen" else tag("buurten"),
-         uitleg="Bij 'geen': alleen de huidige warmtepompen, het gemeentetotaal verdeeld naar het aandeel woningen in "
-                "de buurt (eenvoudige verdeelregel, kan verfijnd worden). Anders alle woningen in de buurt op de "
-                "gekozen warmteoplossing (keuze per buurt in de zijbalk).",
-         bron="Klimaatmonitor (woningen; huidige warmtepompen in de gemeente) · warmteoplossing: invoer zijbalk")
+    stap(1, "Extra woningen op de warmteoplossing", nl(r.N), "woningen", extra=[("warmteoplossing", r.oplossing)],
+         tag=tag("buurten"),
+         reken=["geen: 0 woningen"] if r.oplossing == "geen" else
+               [f"{nl(r.woningen)} woningen × (100 % − {nl(r.wp_aandeel_huidig)} % met nu al een warmtepomp) = "
+                f"{nl(r.N)} woningen"],
+         uitleg="Alleen de toename: alle woningen in de buurt gaan over op de gekozen warmteoplossing, behalve de "
+                f"woningen die nu al een warmtepomp hebben. Hun verbruik zit al in tab {kn(1)}. Bij 'geen' komen er "
+                "geen woningen bij.",
+         bron="CBS (woningen) · warmteoplossing en huidig aandeel warmtepompen: invoer zijbalk")
     stap(2, "Warmtevraag per woning per jaar, uit gas", nl(r.q_jaar_gas), "kWh warmte",
          waterval(["gas", "−tapwater en koken", "ruimteverwarming"], [r.gas, -r.gas_tapwater_koken, 0],
                   ["absolute", "relative", "total"], "m³"),
@@ -132,53 +179,45 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
          uitleg="Gasverbruik per woning min een vast gemiddelde voor tapwater en koken, omgerekend naar nuttige warmte "
                 "(calorische waarde × ketelrendement).",
          bron="Klimaatmonitor (gasverbruik per woning) · 100 m³ tapwater en koken: projectaanname")
-    lt = labeltabel
-    stap(3, "Correctie voor energielabels", nl(r.labelfactor, 3), "× de warmtevraag",
-         staven(lt["label"], lt["aandeel_buurt"] * 100, kleuren=[k] * len(lt), eenheid="% adressen", fmt=".0f"),
-         extra=[("warmtevraag na correctie", f"{nl(r.q_jaar)} kWh warmte per woning per jaar"),
-                ("factoren", " ".join(f"{l} {nl(f, 2)}" for l, f in zip(lt["label"], lt["factor"])))],
-         tag=tag("energielabels", "labels_buurt"),
-         uitleg="Demo: een factor per energielabel, gewogen met de labelverdeling van de buurt (grafiek) en gedeeld "
-                "door het gemeentegemiddelde. Een buurt met de gemeentelijke labelverdeling krijgt factor 1.",
-         bron="Zonnedakje (energielabels per adres) · factoren per label: demo")
-    stap(4, "Warmtevraag per woning op deze dag", nl(r.q_ref, 1), "kWh warmte",
-         lijn({"buitentemperatuur": r.T}, [KLEUR[0]], "°C", fmt=".1f", hlijn=(p["t_stookgrens"], "stookgrens")),
-         extra=[("graaddagen deze dag", nl(r.gd_ref, 1)),
-                ("ten opzichte van een gemiddelde dag", f"{nl(r.q_ref * 365 / r.q_jaar, 2)} ×" if r.q_jaar else "–"),
-                ("isolatie", f"{nl(p_isolatie)} % minder warmtevraag dan nu")],
-         tag=tag(*q_par, "T", "t_stookgrens", "gd_jaar"),
-         uitleg="Jaarlijkse warmtevraag × graaddagen van deze dag ÷ graaddagen per jaar (KNMI 2025), minus isolatie. "
-                "Graaddagen = stookgrens min de gemiddelde buitentemperatuur van de dag (Q_ref).",
-         bron="KNMI station 215 (temperatuur 18-02-2025, graaddagen 2025) · isolatie: invoer zijbalk")
+    stap(3, "Warmtevraag per woning op deze dag", nl(r.q_ref, 1), "kWh warmte",
+         tag=tag(*q_par, "t_ref", "t_stookgrens", "gd_jaar"),
+         reken=[f"graaddagen: {nl(p['t_stookgrens'])} °C stookgrens − ({nl(p['t_ref'])} °C) = {nl(r.gd_ref, 1)}",
+                f"{nl(r.q_jaar)} kWh × {nl(r.gd_ref, 1)} ÷ {nl(p['gd_jaar'])} graaddagen × (100 % − {nl(p_isolatie)} % "
+                f"isolatie) = {nl(r.q_ref, 1)} kWh",
+                f"{nl(r.q_ref, 1)} kWh ÷ ({nl(r.q_jaar)} kWh ÷ 365) = "
+                + (f"{nl(r.q_ref * 365 / r.q_jaar, 2)} × een gemiddelde dag" if r.q_jaar else "–")],
+         uitleg="Jaarlijkse warmtevraag × graaddagen van deze dag ÷ graaddagen per jaar, minus isolatie. We nemen een "
+                f"constante buitentemperatuur van {nl(p['t_ref'])} °C aan voor deze dag.",
+         bron="aanname (buitentemperatuur) · KNMI station 215 (graaddagen 2025) · isolatie: invoer zijbalk")
     if r.band:
-        stap(5, "Verloop over de dag: bandbreedte", r.vorm_bron, "gebruikt (keuze in de zijbalk)",
+        stap(4, "Verloop over de dag: bandbreedte", r.vorm_bron, "gebruikt (keuze in de zijbalk)",
              lijn({n: _pct(vv) for n, (vv, _) in r.band.items()}, [k, MUTED], VERLOOP, fmt=".2f"),
              extra=[(f"piek {n}", f"{nl(_piek_per_eenheid(r.E, vv), 2)} kW per woning "
                      + ("constant" if np.ptp(vv) == 0 else f"om {TIJD[int(np.argmax(vv))]}"))
                     for n, (vv, _) in r.band.items()],
-             tag=tag("nedu_g1a_tap"),
+             tag=tag("wp_aggregaat"),
              uitleg="Hoe de stroom over de dag valt, hangt af van buffering in woning en installatie. Vlak: maximale "
-                    "buffering (laagste piek). G1A: volgt het stookgedrag van gasgestookte woningen, uit het "
-                    "NEDU-gasprofiel op deze dag (hoogste piek).",
-         bron="NEDU standaardprofielen aardgas 2025 (G1A, temperatuurafhankelijk deel) · vlak: aanname · warmtepompprofiel in uitwerking")
+                    "buffering (laagste piek). Gemeten aggregaat: het opgetelde profiel van veel warmtepompen op een "
+                    "koude winterdag, met een ochtendpiek na de nachtverlaging.",
+         bron="gemeten aggregaatprofiel warmtepompen (mock; bron open) · vlak: aanname")
     else:
-        stap(5, "Verloop over de dag: constant", None,
+        stap(4, "Verloop over de dag: constant", None,
              lijn({"verloop": _pct(r.v)}, [k], VERLOOP, fmt=".2f"),
              extra=[("elk kwartier", f"{nl(r.v[0] * 100, 2)} % van de dag")],
-             uitleg="Voor warmtenetten nemen we voorlopig een constant verloop aan. Mogelijke bronnen voor een profiel: "
-                    "het NEDU-gasprofiel G1A (al in de app, voor all-electric) en meetdata van de Installatiemonitor "
-                    "(RVO/BDH; nu alleen dagwaarden gepubliceerd).",
+             uitleg="Voor warmtenetten nemen we voorlopig een constant verloop aan. Mogelijke bron voor een profiel: "
+                    "meetdata van warmtenetten of van de Installatiemonitor (RVO/BDH; nu alleen dagwaarden gepubliceerd).",
          bron="aanname (constant)")
     extra6 = []
-    if r.oplossing != "MT":
-        extra6.append(("warmtepomp" if not net else "booster", f"{nl(r.e_warmtepomp, 2)} kWh (COP {nl(r.cop, 2)})"))
+    if not np.isnan(r.cop):
+        naam6 = {"ZLT": "booster", "MT": f"centrale opwek ({r.mt_opwek})"}.get(r.oplossing, "warmtepomp")
+        extra6.append((naam6, f"{nl(r.e_warmtepomp, 2)} kWh (COP {nl(r.cop, 2)})"))
     if net:
         extra6.append(("pompen warmtenet", f"{nl(r.e_pomp, 2)} kWh ({nl(p['pomp_w_woning'])} W × 24 uur)"
                        if r.pomp_invoer == "per woning" else
                        f"{nl(r.e_pomp, 2)} kWh (totaal {nl(r.e_pomp * r.N / 24)} kW voor de buurt, "
                        f"verdeeld over {nl(r.N)} woningen)"))
     extra6.append(("piek", f"{nl(_piek_per_eenheid(r.E, r.v), 2)} kW per woning"))
-    stap(6, "Stroom per woning op deze dag", nl(r.E, 2), "kWh per woning", extra=extra6,
+    stap(5, "Stroom per woning op deze dag", nl(r.E, 2), "kWh per woning", extra=extra6,
          tag=tag(*cop_par, "pomp_w_woning", *q_par) if net else tag(*cop_par, *q_par),
          uitleg={"geen": "Warmtevraag op deze dag ÷ één COP voor de hele dag, als all-electric.",
                  "all-electric": "Warmtevraag op deze dag ÷ één COP voor de hele dag.",
@@ -186,42 +225,45 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
                         "De COP hangt lineair af van de nettemperatuur (vaste term + per graad × temperatuur); later "
                         "beter: Carnot × rendement met de aanvoertemperatuur in de woning. Daarbij een vast "
                         "pompvermogen (per woning of als totaal voor de buurt), los van de warmtevraag.",
-                 "MT": "Geen warmtepomp per woning: alleen een vast pompvermogen (per woning of als totaal voor de "
-                       "buurt), los van de warmtevraag. Een centrale bron telt (nog) niet mee in het buurtprofiel."}[r.oplossing],
-         bron={"geen": "stap 4 · COP: bron open", "all-electric": "stap 4 · COP: bron open",
-               "ZLT": "stap 4 · nettemperatuur: projectaanname 25 °C · COP-lijn en pompvermogen: bron open",
-               "MT": "pompvermogen: bron open"}[r.oplossing])
-    stap(7, "Warmteoplossingen naast elkaar", None,
+                 "MT": {"restwarmte": "Geen warmtepomp per woning en de warmte komt van buiten de buurt (restwarmte): "
+                                      "alleen een vast pompvermogen (per woning of als totaal voor de buurt).",
+                        "grote warmtepomp": "De warmte wordt in de buurt gemaakt met een grote warmtepomp: warmtevraag "
+                                            "÷ COP van de centrale warmtepomp, constant over de dag. Daarbij een vast "
+                                            "pompvermogen. Geen warmteverlies in het net (voorlopig).",
+                        "e-boiler": "De warmte wordt in de buurt gemaakt met een e-boiler: warmtevraag ÷ 1, constant "
+                                    "over de dag. Daarbij een vast pompvermogen. Geen warmteverlies in het net "
+                                    "(voorlopig)."}[r.mt_opwek]}[r.oplossing],
+         bron={"geen": "stap 3 · COP: bron open", "all-electric": "stap 3 · COP: bron open",
+               "ZLT": "stap 3 · nettemperatuur: projectaanname 25 °C · COP-lijn en pompvermogen: bron open",
+               "MT": "stap 3 · opwek: invoer zijbalk · COP centrale warmtepomp en pompvermogen: bron open"}[r.oplossing])
+    stap(6, "Warmteoplossingen naast elkaar", None,
          fig=lijn({o: v.P for o, v in varianten.items()}, KLEUR[:len(varianten)], "kW", fmt=",.0f"),
          extra=[(o, f"{nl(v.P.max())} kW ({nl(_piek_per_eenheid(v.E, v.v), 2)} kW per woning)")
                 for o, v in varianten.items()],
-         tag=tag("T", *q_par, "cop_ae", "cop_zlt_a", "cop_zlt_b", "pomp_w_woning", "nedu_g1a_tap"),
-         uitleg="Dezelfde buurt bij elke warmteoplossing; 'geen' is alleen de huidige warmtepompen.",
-         bron="stappen 1 tot en met 6, voor elke warmteoplossing")
+         tag=tag("t_ref", *q_par, "cop_ae", "cop_zlt_a", "cop_zlt_b", "cop_mt_wp", "pomp_w_woning", "wp_aggregaat"),
+         uitleg="Dezelfde buurt bij elke warmteoplossing; bij 'geen' komen er geen woningen bij (0 kW). MT met de "
+                "gekozen opwek.",
+         bron="stappen 1 tot en met 5, voor elke warmteoplossing")
     fig = None
     if r.band:
         fig = lijn({f"{n}{' (gebruikt)' if n == r.vorm_bron else ''}": P for n, (_, P) in r.band.items()},
                    [k if n == r.vorm_bron else MUTED for n in r.band], "kW", H_GROOT, fmt=",.0f")
-    p_en_checks(8, r.P, k, r.checks, fig=fig)
+    p_en_checks(7, r.P, k, r.checks, fig=fig)
     _vast(3)
 
 
-def kaart4(r: k4_laden_auto.Resultaat, p, tag, p_ev_toename: float) -> None:
+def kaart4(r: k4_laden_auto.Resultaat, p, tag) -> None:
     k = kleur(4)
     _kop(4)
     _formule("Profiel = aantal elektrische auto's × laadenergie per auto op deze dag × laadverloop over de dag",
              "P[t] = 4 × N × E × v[t], v = (1 − a) × v_ongestuurd + a × v_slim")
-    stap(1, "Aantal elektrische auto's", nl(r.N), "auto's",
-         extra=[("huidig (jan 2025)", nl(r.n_huidig)),
-                ("extra", f"{nl(r.n_extra)} ({nl(p_ev_toename)} % van alle huidige personenauto's)")],
-         tag=tag("buurten", "autos_gemeente"),
-         uitleg="Huidige EV's (632 in de gemeente, verdeeld naar aandeel personenauto's) plus extra EV's: een "
-                "percentage van alle huidige personenauto's in de buurt, bovenop de huidige EV's (zijbalk).",
-         bron="Klimaatmonitor (632 BEV, januari 2025) · CBS Kerncijfers wijken en buurten (personenauto's) · extra EV's: invoer zijbalk")
+    stap(1, "Extra elektrische auto's", nl(r.N), "auto's", tag=tag("buurten"),
+         uitleg="Alleen de toename: het aantal extra EV's in de buurt (zijbalk). Het laden van de huidige EV's zit al "
+                f"in tab {kn(1)}.",
+         bron="invoer zijbalk")
     stap(2, "Laadenergie per auto op deze dag", nl(r.E, 1), "kWh per auto",
-         extra=[("× 365", f"{nl(r.E * 365)} kWh per jaar"),
-                (f"jaarwaarde gebruikt in tab {kn(1)}", f"{nl(p['ev_jaarenergie'])} kWh")],
-         tag=tag("ev_e_dag", "ev_jaarenergie"),
+         extra=[("× 365", f"{nl(r.E * 365)} kWh per jaar")],
+         tag=tag("ev_e_dag"),
          uitleg="Dagwaarde op een winterwerkdag, thuis en openbaar samen.",
          bron="onderbouwing open (7 tot 9 kWh volgens de rekenkaart)")
     stap(3, "Laadverloop: ongestuurd, slim en gemengd", f"{nl(r.a * 100)} %", "slim laden",
@@ -231,7 +273,7 @@ def kaart4(r: k4_laden_auto.Resultaat, p, tag, p_ev_toename: float) -> None:
                 ("gemengd", f"{nl(_piek_per_eenheid(r.E, r.v), 2)} kW per auto")],
          tag=tag("ev_ongestuurd", "ev_slim", "slim_aandeel"),
          uitleg="Het gemengde verloop weegt ongestuurd en slim laden met het aandeel slim laden (% van alle EV's, "
-                "huidig en extra). Aantal en laadenergie veranderen niet. Verlopen: mock tot de ElaadNL-dataset "
+                "extra). Aantal en laadenergie veranderen niet. Verlopen: mock tot de ElaadNL-dataset "
                 "gekozen is.",
          bron="ElaadNL gemeten aggregaat (dataset open) · aandeel slim laden: invoer zijbalk")
     p_en_checks(4, r.P, k, r.checks)
@@ -241,27 +283,27 @@ def kaart4(r: k4_laden_auto.Resultaat, p, tag, p_ev_toename: float) -> None:
 def kaart7(r: k7_zon.Resultaat, p, tag) -> None:
     k = kleur(7)
     _kop(7)
-    _formule("Profiel = opgesteld vermogen × opbrengst per kWp op deze dag × verloop over de dag (negatief: opwek)",
+    _formule("Profiel = resterende dakpotentie × benutting × deel van de jaaropwek op deze dag × verloop over de dag "
+             "(negatief: opwek)",
              "P[t] = 4 × N × E × v[t], Σ v = −1")
-    stap(1, "Opgesteld vermogen bij woningen", nl(r.N), "kWp",
-         extra=[("huidig", f"{nl(r.n_huidig)} kWp"), ("groei", f"{nl(p['zon_groei'])} %")],
-         tag=tag("buurten", "zon_groei"),
-         uitleg=f"kWp bij woningen in de buurt × (1 + groei t.o.v. het huidige vermogen). Zon van bedrijven staat op "
-                f"tab {kn(6)}.",
-         bron="Zonnedakje (kWp bij woningen) · groei: invoer zijbalk")
-    stap(2, "Opbrengst per kWp op deze dag", nl(r.E, 3), "kWh per kWp",
-         lijn({"instraling": r.I}, [KLEUR[3]], "W/m²", fmt=",.0f"),
-         extra=[("instraling deze dag", f"{nl(r.i_ref, 2)} kWh/m²"),
-                ("ten opzichte van een gemiddelde dag", f"{nl(r.i_ref * 365 / p['i_jaar'], 2)} ×"),
-                ("performance ratio", nl(r.E / r.i_ref, 2) if r.i_ref else "–")],
-         tag=tag("I", "zon_opbrengst", "i_jaar"),
-         uitleg="Jaaropbrengst per kWp × instraling van deze dag ÷ instraling per jaar (KNMI, horizontaal vlak). "
-                "kWp en jaaropbrengst komen zoveel mogelijk uit Zonnedakje.",
-         bron="Zonnedakje (jaaropbrengst per kWp) · KNMI station 215 (instraling 18-02-2025)")
-    stap(3, "Verloop over de dag", _hoogste(r.v), "meeste opwek",
-         lijn({"opwek": _pct(r.v)}, [k], VERLOOP, fmt=".2f"),
-         extra=[("grootste opwek", f"{nl(_piek_per_eenheid(r.E, r.v), 2)} kW per kWp")], tag=tag("I"),
-         uitleg="Volgt de gemeten instraling per uur; negatief omdat het opwek is.",
+    stap(1, "Extra jaaropwek zon in de buurt", nl(r.N / 1e3), "MWh/jaar", tag=tag("buurten"),
+         reken=[f"{nl(r.potentie / 1e3)} MWh resterende potentie × {nl(r.benutting)} % = {nl(r.N / 1e3)} MWh"],
+         uitleg="Alleen de toename: een deel van de resterende dakpotentie op alle daken in de buurt, woningen en "
+                f"bedrijven (zijbalk, 0 tot 50 %). De huidige zon staat in tab {kn(1)} (woningen) en tab {kn(6)} "
+                "(bedrijven).",
+         bron="Zonnedakje (resterende dakpotentie, alle daken in de buurt) · benutting: invoer zijbalk")
+    stap(2, "Deel van de jaaropwek op deze dag", nl(r.E * 100, 3), "%",
+         lijn({"instraling": r.I}, [k], "W/m²", fmt=",.0f"), tag=tag("I", "i_jaar"),
+         reken=[f"{nl(r.i_ref, 2)} kWh/m² ÷ {nl(p['i_jaar'])} kWh/m² = {nl(r.E * 100, 3)} %",
+                f"{nl(r.E * 100, 3)} % ÷ {nl(100 / 365, 3)} % = {nl(r.E * 365, 2)} × een gemiddelde dag"],
+         uitleg="Instraling op deze dag ÷ instraling per jaar (KNMI, horizontaal vlak).",
+         bron="KNMI station 215 (instraling 18-02-2025; instraling per jaar)")
+    i_zon = int(np.argmin(r.P))
+    stap(3, "Extra opwek op deze dag", nl(r.N * r.E), "kWh", tag=tag("buurten", "I"),
+         fig=lijn({"opwek": r.P}, [k], "kW", fmt=",.0f", vlak=True),
+         reken=[f"{nl(r.N / 1e3)} MWh × {nl(r.E * 100, 3)} % = {nl(r.N * r.E)} kWh",
+                *([f"meeste opwek {TIJD[i_zon]}: {nl(-r.P[i_zon])} kW"] if r.P[i_zon] < 0 else [])],
+         uitleg="Het verloop volgt de gemeten instraling per kwartier; negatief omdat het opwek is.",
          bron="KNMI station 215 (instraling per uur, 18-02-2025)")
     p_en_checks(4, r.P, k, r.checks)
     _vast(7)
@@ -341,7 +383,11 @@ def kaart6(r: k6_mkb.Resultaat, opties: dict, tag) -> None:
          tag=tag("sectoren", "groei_niet_huish"),
          uitleg="Gemeentetotaal per sector verdeeld naar de buurt, × (1 + groei t.o.v. het huidige jaarverbruik). "
                 "Opwek van bedrijven negatief.",
-         bron="Klimaatmonitor (verbruik per sector, gemeente) · BAG gebruiksoppervlak (verdeling naar buurt) · groei: invoer zijbalk")
+         bron="Klimaatmonitor (verbruik per sector, gemeente) · BAG gebruiksoppervlak (verdeling naar buurt) · groei: "
+              "invoer zijbalk · opwek: Zonnedakje (alle daken min woningen)",
+         noot=f"opwek van bedrijven = Zonnedakje voor alle overige panden: alle daken min de woningen uit tab {kn(1)} "
+              "(nu nog mock), zodat alle zonne-energie in de buurt één keer meetelt. Controle toevoegen: opwek woningen "
+              "+ overige panden = totaal Zonnedakje voor de buurt.")
     stap(2, "Verbruik op deze dag per sector", nl(float(df["E"].abs().sum())), "kWh (verbruik en opwek opgeteld)",
          staven(df["sector"], df["d"] * 365, kleuren=kleuren, eenheid="× een gemiddelde dag", fmt=".2f"),
          tag=tag(*r.v.keys(), "i_jaar"),
@@ -392,40 +438,48 @@ def kaart8(r: k8_batterij.Resultaat, p, tag) -> None:
     _formule("Profiel = totale batterijcapaciteit × laad- en ontlaadvermogen per kWh batterij; positief is laden",
              "P[t] = N × v[t], v in kW per kWh")
     stap(1, "Totale batterijcapaciteit in de buurt", nl(r.N), "kWh",
-         extra=[("batterijen", f"{nl(r.batterijen)} ({nl(p['bat_adoptie'])} % van de woningen)"),
-                ("capaciteit", f"{nl(p['bat_kwh'], 1)} kWh per batterij")],
-         tag=tag("buurten", "bat_adoptie", "bat_kwh"),
-         uitleg="Woningen × aandeel woningen met een batterij (% van alle woningen) × capaciteit per batterij.",
-         bron="Klimaatmonitor (woningen) · aandeel woningen met batterij en capaciteit: invoer zijbalk")
+         tag=tag("buurten", "bat_adoptie"),
+         reken=[f"{nl(r.woningen)} woningen × {nl(p['bat_adoptie'])} % = {nl(r.batterijen)} batterijen",
+                f"{nl(r.batterijen)} batterijen × {nl(p['bat_kwh'])} kWh = {nl(r.N)} kWh"],
+         uitleg="Woningen × aandeel woningen met een batterij × capaciteit per batterij. De capaciteit is een keuze "
+                "uit 5, 10 of 15 kWh, het gangbare bereik voor thuisbatterijen.",
+         bron="CBS (woningen) · aandeel en capaciteit: invoer zijbalk · bereik 5 tot 15 kWh: marktaanbod en "
+              "consumentensites (Selectra, Werkspot), geen onafhankelijke bron")
     stap(2, "Geen eigen verbruik", None,
          uitleg="Een batterij verschuift energie in de tijd en verbruikt netto alleen zijn verliezen. Daarom is er "
                 "geen verbruik per stuk zoals op de andere tabs.")
     overschot = float(np.clip(r.pv - r.last, 0, None).sum() / 4)
     stap(3, "Verbruik en zon van een woning met batterij", nl(overschot, 2), "kWh zonoverschot op deze dag",
          lijn({f"verbruik (tab {kn(1)})": r.last, f"zon (tab {kn(7)})": r.pv}, [KLEUR[0], KLEUR[3]], "kW", fmt=".2f"),
-         extra=[("zonnepanelen per batterijwoning", f"{nl(p['bat_kwp_woning'], 1)} kWp")],
-         tag=tag("nedu_e1a", "I", "bat_kwp_woning"),
-         uitleg=f"Gemiddelde woning uit tab {kn(1)} met de zon van één batterijwoning uit tab {kn(7)}. Alleen het "
+         extra=[("zonnepanelen per batterijwoning", f"{nl(p['bat_kwp_woning'], 1)} kWp"),
+                ("jaaropbrengst", f"{nl(p['zon_opbrengst'])} kWh per kWp")],
+         tag=tag("nedu_e1a", "I", "bat_kwp_woning", "zon_opbrengst"),
+         uitleg=f"Gemiddelde woning uit tab {kn(1)} met de zon van één batterijwoning (kWp × jaaropbrengst per kWp, verloop als tab {kn(7)}). Alleen het "
                 "overschot kan de batterij met zelfconsumptie laden.",
-         bron=f"tab {kn(1)} (verbruik per woning) · tab {kn(7)} (zon per kWp) · zonnepanelen per batterijwoning: invoer zijbalk")
+         bron=f"tab {kn(1)} (verbruik per woning) · tab {kn(7)} (verloop zon) · zonnepanelen per batterijwoning: invoer zijbalk")
     stap(4, "Day-ahead prijs", f"{int(r.goedkoop.sum())}", "goedkoopste en duurste kwartieren",
          lijn({"prijs": r.prijs}, [KLEUR[1]], "€/MWh", fmt=",.0f"), tag=tag("prijs"),
          extra=[("laden rond", ", ".join(TIJD[i] for i in np.flatnonzero(r.goedkoop)[:3]) + " …"),
                 ("ontladen rond", ", ".join(TIJD[i] for i in np.flatnonzero(r.duur)[:3]) + " …")],
-         uitleg="Alleen voor zelfconsumptie + day-ahead: laden in de goedkoopste en ontladen in de duurste "
-                "kwartieren; zoveel kwartieren als nodig om vol of leeg te gaan.",
+         uitleg="Alleen voor zelfconsumptie + day-ahead: laden uit het net in de goedkoopste kwartieren en op vol "
+                "vermogen ontladen in de duurste; zoveel kwartieren als nodig om vol of leeg te gaan.",
          bron="day-ahead prijs Nederland, 18-02-2025 (bron nog te kiezen)")
     stap(5, "Laden en ontladen per kWh batterij", r.modus, "gebruikt (keuze in de zijbalk)",
          lijn({m: md.v for m, md in r.modi.items()}, [KLEUR[0], KLEUR[1]], "kW per kWh", fmt=".3f"),
          extra=[(m, f"verlies {nl(md.v.sum() / 4, 3)} kWh per kWh batterij") for m, md in r.modi.items()],
          tag=tag("bat_c", "bat_eta", "prijs"),
-         uitleg="Zelfconsumptie: laden bij zonoverschot, ontladen bij tekort. Plus day-ahead: daarnaast laden uit het "
-                "net in goedkope kwartieren en ontladen in dure. Positief is laden; de batterij eindigt de dag zo vol "
-                "als hij begon (v).",
+         uitleg="Zelfconsumptie: zonoverschot laden, eigen tekort dekken uit zonnestroom. Plus day-ahead: daarnaast "
+                "laden uit het net in de goedkoopste kwartieren en in de duurste kwartieren op vol vermogen ontladen (eigen "
+                "tekort dekken, de rest terugleveren). Ingekochte stroom blijft staan tot de duurste kwartieren, zodat "
+                "zonnestroom voor eigen gebruik blijft. Positief is laden; de batterij eindigt de dag zo vol als hij "
+                "begon (v).",
          bron="stap 3 en 4 · vermogen en rendement: invoer zijbalk")
     stap(6, "Laadtoestand", None,
-         fig=lijn({m: md.soc * 100 for m, md in r.modi.items()}, [KLEUR[0], KLEUR[1]], "% vol", fmt=".0f"),
-         tag=tag("bat_c", "bat_eta", "prijs"), uitleg="Hoe vol de batterij is over de dag.",
+         fig=lijn({**{m: md.soc * 100 for m, md in r.modi.items()},
+                   f"{k8_batterij.MODI[1]}: waarvan ingekocht": r.modi[k8_batterij.MODI[1]].soc_net * 100},
+                  [KLEUR[0], KLEUR[1], MUTED], "% vol", fmt=".0f"),
+         tag=tag("bat_c", "bat_eta", "prijs"),
+         uitleg="Hoe vol de batterij is over de dag; de grijze lijn is het deel dat uit het net is ingekocht.",
          bron="stap 5")
     p_en_checks(7, r.P, k, r.checks)
     _vast(8)

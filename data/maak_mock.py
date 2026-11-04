@@ -1,6 +1,8 @@
 """Genereert de mockdataset in data/mock/ (vaste seed).
 
-Referentiedag di 18-02-2025: weer uit KNMI (station 215), huishoudprofiel uit NEDU E1A_AZI_A 2025.
+Referentiedag di 18-02-2025: temperatuur en wind uit KNMI (station 215), huishoudprofiel uit NEDU E1A_AZI_A 2025.
+Instraling (mock): KNMI station 215 van wo 12-02-2025, een volledig bewolkte winterdag (8/8), in plaats van de
+zonnige 18-02.
 Al het overige is mock; zie data/mock/status.csv.
 """
 import io
@@ -13,6 +15,7 @@ SEED = 2025
 BRON = Path(__file__).parent / "bron"
 UIT = Path(__file__).parent / "mock"
 DATUM = "20250218"
+DATUM_ZON = "20250212"  # mock: instraling van een bewolkte winterdag
 rng = np.random.default_rng(SEED)
 
 t = np.arange(96)
@@ -62,22 +65,23 @@ def knmi_dag() -> tuple[np.ndarray, np.ndarray]:
     return T, I
 
 
-def g1a_ruimteverwarming() -> np.ndarray:
-    """NEDU gasprofiel G1A, temperatuurafhankelijk deel: TAP[h] = RER[h] × max(0, TST[h] − TAC).
-
-    TAC = etmaalgemiddelde effectieve temperatuur T − W/1,5 (KNMI daggegevens). Vereenvoudiging: de TAC van
-    deze dag geldt voor alle 24 uur (de gasdag loopt formeel van 06:00 tot 06:00). Uur gelijk over 4 kwartieren.
-    """
-    regels = [r for r in (BRON / f"knmi_215_{DATUM}_dag.txt").read_text().splitlines()
+def knmi_instraling(datum: str) -> np.ndarray:
+    """KNMI uursom Q (J/cm², UT) van een andere dag als W/m² per kwartier lokale tijd, zoals in knmi_dag."""
+    regels = [r for r in (BRON / f"knmi_215_{datum}_uur_q.txt").read_text().splitlines()
               if r.strip() and not r.startswith("#")]
-    _, _, tg, fg = [float(x) for x in regels[0].split(",")]
-    tac = tg / 10 - (fg / 10) / 1.5
-    g = pd.read_csv(BRON / f"nedu_2025_g1a_{DATUM}.csv")
-    tap = g["G1A_RER"].to_numpy() * np.maximum(g["G1A_TST"].to_numpy() - tac, 0)
-    return np.repeat(tap / 4, 4)
+    k = pd.read_csv(io.StringIO("\n".join(regels)), header=None, names=["stn", "datum", "hh", "Q"],
+                    skipinitialspace=True)
+    cet = pd.to_datetime(k["datum"].astype(str)) + pd.to_timedelta(k["hh"], unit="h") + pd.Timedelta(hours=1)
+    uur_eind = ((cet - pd.Timestamp(datum)) / pd.Timedelta(hours=1)).to_numpy()
+    I = np.zeros(96)
+    for e, q in zip(uur_eind, k["Q"].to_numpy()):
+        if 1 <= e <= 24:
+            I[int(e - 1) * 4:int(e) * 4] = q * 1e4 / 3600
+    return I
 
 
-T, I = knmi_dag()
+T, _ = knmi_dag()
+I = knmi_instraling(DATUM_ZON)
 prijs = 70 + 60 * gauss(8.5, 1.2) + 110 * gauss(18.5, 1.5) + 25 * gauss(13, 3) - 15 * gauss(3.5, 2)
 prijs = prijs + 3 * rng.standard_normal(96)
 
@@ -85,7 +89,10 @@ dag = pd.DataFrame({"datum": pd.Timestamp(DATUM).date().isoformat(), "kwartier":
 
 prof = pd.DataFrame({"kwartier": t, "tijd": tijd})
 prof["nedu_e1a"] = pd.read_csv(BRON / f"nedu_2025_e1a_{DATUM}.csv")["E1A_AZI_A"].to_numpy()
-prof["nedu_g1a_tap"] = g1a_ruimteverwarming()
+# mock: gemeten aggregaatprofiel warmtepompen op een koude winterdag (ochtendpiek na nachtverlaging, avondbult)
+# eigen toevalsgenerator, zodat de ruis van de andere mockprofielen gelijk blijft
+_wp = 1.0 + 0.45 * gauss(7.0, 1.0) + 0.25 * gauss(18.5, 2.0) - 0.15 * gauss(14.0, 2.5) - 0.1 * gauss(2.5, 2.0)
+prof["wp_aggregaat"] = _wp * (1 + 0.02 * np.random.default_rng(SEED + 1).standard_normal(96))
 # NEDU E3 (E3A t/m E3D zijn gelijk); profiel telt op tot 2 per jaar (normaal + laag), dus ÷ 2
 prof["nedu_e3"] = pd.read_csv(BRON / f"nedu_2025_e3_{DATUM}.csv")["E3A_A"].to_numpy() / 2
 prof["koken"] = ruis(0.02 + 0.15 * gauss(7.5, 0.6) + 0.25 * gauss(12.5, 0.8) + 1.0 * gauss(18.0, 0.9))
@@ -105,15 +112,19 @@ buurten = pd.DataFrame([{
     "buurt_naam": "Buurt A",
     "woningen": 1500,
     "huishoudens": 1450,
-    "kwp_woningen": round(1500 * 15_648 / 11_286),  # Zonnedakje gemeente (kWp woningen) naar aandeel woningen
+    # mock: bruto jaaropwek woningen (kWh): Zonnedakje gemeente-kWp naar aandeel woningen × 875 kWh/kWp (1.213 kWh per woning)
+    "zon_kwh_jaar": round(round(1500 * 15_648 / 11_286) * 875),
     "gas_m3_per_woning": 960,  # Klimaatmonitor: gemiddelde Oegstgeest, alle woningen
-    "personenautos": 1300,
     "bestelautos": 120,
     "vrachtautos": 10,
     "warmteoplossing": "geen",
     "isolatie_reductie": 0,
-    "ev_toename_pct": 0,
+    "ev_extra": 0,  # aantal extra EV's; invoer
     "pomp_kw_buurt": 75,  # mock: 1.500 woningen × 50 W
+    "wp_aandeel_huidig": 0,
+    # mock: resterende dakpotentie zon, alle daken in de buurt (kWh/jaar) = 3 × huidige opwek woningen; Zonnedakje volgt
+    "zon_potentie_kwh_jaar": 3 * round(round(1500 * 15_648 / 11_286) * 875),
+    "zon_benutting_pct": 0,  # invoer: % van de resterende potentie dat erbij komt (0 tot 50)  # % woningen met nu al een warmtepomp; placeholder tot er buurtcijfers zijn
 }])
 
 # Verhoudingen tussen woningtypen zijn mock, geschaald naar het bekende gemeentegemiddelde netto (1.920 kWh)
@@ -124,15 +135,6 @@ woningtypen = pd.DataFrame([
     {"buurt_code": "BU_MOCK_A", "woningtype": w, "woningen": n, "e_netto_kwh_per_woning": round(e * _schaal, -1)}
     for w, n, e in _types
 ])
-
-# Energielabels: gemeenteverdeling uit Zonnedakje (adressen met label); factoren en buurtverdeling zijn mock
-energielabels = pd.DataFrame({
-    "label": ["A+", "A", "B", "C", "D", "E", "F", "G"],
-    "factor": [0.6, 0.7, 0.85, 1.0, 1.1, 1.2, 1.3, 1.4],
-    "adressen_gemeente": [701, 2744, 904, 1471, 453, 413, 218, 188],
-})
-labels_buurt = pd.DataFrame({"buurt_code": "BU_MOCK_A", "label": energielabels["label"],
-                             "adressen": [40, 180, 90, 160, 70, 60, 40, 30]})
 
 sectoren = pd.DataFrame([
     {"buurt_code": "BU_MOCK_A", "sector": "Kantoor", "e_jaar_kwh": 900_000, "profiel": "sector_kantoor", "teken": 1},
@@ -147,7 +149,5 @@ dag.to_csv(UIT / "referentiedag.csv", index=False)
 prof.to_csv(UIT / "profielen.csv", index=False)
 buurten.to_csv(UIT / "buurten.csv", index=False)
 woningtypen.to_csv(UIT / "woningtypen.csv", index=False)
-energielabels.to_csv(UIT / "energielabels.csv", index=False)
-labels_buurt.to_csv(UIT / "labels_buurt.csv", index=False)
 sectoren.to_csv(UIT / "sectoren.csv", index=False)
 print("mock geschreven naar", UIT)

@@ -1,14 +1,12 @@
 naam,status,bron
 buurten,mock,
 woningtypen,mock,"Klimaatmonitor (netto per woningtype, PC6) en CBS; verhoudingen mock, geschaald naar gemeentegemiddelde 1.920 kWh"
-energielabels,mock,"Zonnedakje (gemeenteverdeling adressen met label); factoren per label mock"
-labels_buurt,mock,Zonnedakje (labels per adres per buurt)
 sectoren,mock,
 T,bron,"KNMI uurgegevens, station 215 Voorschoten, di 18-02-2025"
-I,bron,"KNMI uurgegevens (globale straling Q), station 215 Voorschoten, di 18-02-2025"
+I,mock,"KNMI uurgegevens (globale straling Q), station 215 Voorschoten, wo 12-02-2025 (bewolkte winterdag, mock voor 18-02)"
 prijs,mock,
 nedu_e1a,bron,"NEDU standaardprofielen elektriciteit 2025 v1.00, E1A_AZI_A, di 18-02-2025"
-nedu_g1a_tap,bron,"NEDU standaardprofielen aardgas 2025 v1.00, G1A temperatuurafhankelijk deel, di 18-02-2025, TAC uit KNMI station 215"
+wp_aggregaat,mock,"gemeten aggregaatprofiel warmtepompen, koude winterdag (mock; bron open, bijv. Liander of Installatiemonitor RVO/BDH)"
 nedu_e3,bron,"NEDU standaardprofielen elektriciteit 2025 v1.00, E3A t/m E3D (gelijk), di 18-02-2025"
 koken,mock,
 ev_ongestuurd,mock,

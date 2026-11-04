@@ -23,7 +23,7 @@ def kleur(kaart: int) -> str:
 
 
 # Methodiek vastgesteld (True) of open (False), per kaart. Stapeling = 9.
-VASTGESTELD = {2: True}
+VASTGESTELD = {k: True for k in VOLGORDE[:6]}  # tab 1 tot en met 6: koken, woningen, laden, batterij, warmtepomp, zon
 
 
 def meta(kaart: int) -> tuple[str, str]:
@@ -37,29 +37,28 @@ def meta(kaart: int) -> tuple[str, str]:
             "laadverloop per voertuigtype",
             "CBS 85239NED (bestelauto's Zuid-Holland, via bedrijfsvestigingen naar buurt) · laadprofiel ElaadNL "
             "(te bevestigen) · laadenergie: open"),
-        4: ("personenauto's per buurt · huidige BEV gemeente · EV toename per buurt (% personenauto's) · aandeel slim laden · laadenergie per auto · "
+        4: ("extra EV's per buurt (aantal; alleen de toename) · aandeel slim laden · laadenergie per auto · "
             "laadverloop ongestuurd en slim",
-            "Klimaatmonitor (632 BEV, jan 2025) · CBS Kerncijfers wijken en buurten (personenauto's) · ElaadNL gemeten "
+            "invoer zijbalk · ElaadNL gemeten "
             "aggregaat (dataset open)"),
-        7: ("kWp bij woningen per buurt · groei zonnepanelen · jaaropbrengst per kWp · instraling op deze dag en per jaar",
-            "Zonnedakje (kWp en jaaropbrengst; zoveel mogelijk deze bron) · controle CBS 85005NED · KNMI station 215 "
-            "(instraling)"),
+        7: ("resterende dakpotentie zon per buurt (alle daken) · benutting in % (alleen de toename) · instraling op deze "
+            "dag en per jaar",
+            "Zonnedakje (resterende dakpotentie) · KNMI station 215 (instraling)"),
         6: (f"jaarverbruik per sector per buurt · groei niet-huishoudelijk · sectorprofielen · verloop opwek gelijk "
             f"aan tab {t(7)}",
             "Klimaatmonitor (verbruik per sector, 36 GWh in 2024) · BAG gebruiksoppervlak (naar buurt) · sectorprofielen: "
             "keuze Liander open data (per sector) of NEDU standaardprofielen elektriciteit 2025 (E3)"),
-        3: ("woningen per buurt · huidige warmtepompen gemeente · gasverbruik per woning · energielabels · warmteoplossing "
-            f"en isolatie per buurt · graaddagen · verloop · COP · temperatuur en pompvermogen warmtenet · levert energie "
-            f"huidige warmtepompen aan tab "
-            f"{t(1)}",
-            "Klimaatmonitor (gas per woningtype, warmtepompen, woningen) · Zonnedakje (energielabels) · KNMI station 215 "
-            "(temperatuur, wind, graaddagen 2025) · "
-            "verloop: bandbreedte vlak tot NEDU standaardprofielen aardgas 2025 (G1A, temperatuurafhankelijk deel); "
-            "opwekprofiel warmtepomp in uitwerking · COP: open"),
-        1: (f"woningen en netto verbruik per woningtype · NEDU-profiel · uit tab {t(7)}: bruto zonopwek huidig · "
-            f"uit tab {t(3)}: energie huidige warmtepompen · uit tab {t(4)}: thuisladen huidige EV's",
+        3: ("woningen per buurt · aandeel woningen met nu al een warmtepomp (alleen de toename telt hier) · gasverbruik "
+            "per woning · warmteoplossing en isolatie per buurt · graaddagen · verloop · COP · "
+            "temperatuur en pompvermogen warmtenet · opwek MT (restwarmte of elektrisch in de buurt)",
+            "Klimaatmonitor (gas per woningtype, woningen) · KNMI station 215 (graaddagen 2025) · "
+            "buitentemperatuur: aanname −10 °C · verloop: vlak tot gemeten aggregaatprofiel warmtepompen (mock) · "
+            "COP: open"),
+        1: (f"woningen en netto verbruik per woningtype · NEDU-profiel · jaaropwek huidige zon bij woningen en opwek "
+            f"op deze dag (rekenwijze tab {t(7)}) · huidige warmtepompen en EV's zitten in het netto verbruik",
             "CBS (woningen per woningtype per buurt) · Klimaatmonitor (netto levering per woningtype, 2025) · NEDU "
-            "standaardprofielen elektriciteit 2025 (E1A_AZI_A)"),
+            "standaardprofielen elektriciteit 2025 (E1A_AZI_A) · Zonnedakje (jaaropwek zon bij woningen) · KNMI station 215 "
+            "(instraling)"),
         8: (f"woningen · adoptiegraad · capaciteit en vermogen per batterij · rendement · batterijmodus · uit tab {t(1)}: "
             f"last per woning · uit tab {t(7)}: zon per kWp · day-ahead prijs",
             "open (Essent batterijwaardering, literatuur, NL Flex) · day-ahead prijs: mock"),

@@ -19,8 +19,9 @@ def badge(status: str) -> str:
 
 
 def stap(nr: int, titel: str, waarde: str | None = None, eenheid: str = "", fig=None,
-         extra: list[tuple[str, str]] | None = None, tag: str = "bron", uitleg: str = "", bron: str = "") -> None:
-    """Eén rekenstap als rij: links titel, uitleg en resultaat, rechts een kleine grafiek."""
+         extra: list[tuple[str, str]] | None = None, tag: str = "bron", uitleg: str = "", bron: str = "",
+         reken: list[str] | None = None, noot: str = "") -> None:
+    """Eén rekenstap als rij: links titel, uitleg, rekenregels en resultaat, rechts een kleine grafiek."""
     with st.container(border=True):
         links, rechts = st.columns([1, 1.6], vertical_alignment="center") if fig is not None else (st.container(), None)
         with links:
@@ -31,19 +32,33 @@ def stap(nr: int, titel: str, waarde: str | None = None, eenheid: str = "", fig=
             if bron:
                 regels.append(f"<div style='font-size:.74rem;color:#898781;line-height:1.3;margin:0 0 .35rem'>"
                               f"<b>Bron</b> {bron}</div>")
+            if noot:
+                regels.append(f"<div style='font-size:.74rem;color:#8a4b00;line-height:1.35;margin:0 0 .35rem'>"
+                              f"<b>Nog uitwerken</b> {noot}</div>")
             if waarde is not None:
                 regels.append(f"<div style='font-size:1.35rem;font-weight:600;line-height:1.25'>{waarde} "
                               f"<span style='font-size:.8rem;font-weight:400;color:#52514e'>{eenheid}</span></div>")
             nevens = " · ".join(f"{label} <b>{w}</b>" if w else label for label, w in extra or [])
             if nevens:
                 regels.append(f"<div style='font-size:.8rem;color:#52514e'>{nevens}</div>")
+            regels.append(rekenregels(reken))
             st.markdown("".join(regels), unsafe_allow_html=True)
         if rechts is not None:
             with rechts:
                 toon(fig)
 
 
-def p_en_checks(nr: int, P, kleur: str, checks: list[Check], naam: str = "Profiel over de dag", fig=None) -> None:
+def rekenregels(reken: list[str] | None) -> str:
+    """Berekening met de ingevulde getallen, één regel per som, zodat elke stap na te rekenen is."""
+    if not reken:
+        return ""
+    return ("<div style='font-family:ui-monospace,Menlo,monospace;font-size:.78rem;color:#0b0b0b;"
+            "background:#f0efec;border-radius:4px;padding:.35rem .5rem;margin:.4rem 0 .5rem;line-height:1.55'>"
+            + "<br>".join(reken) + "</div>")
+
+
+def p_en_checks(nr: int, P, kleur: str, checks: list[Check], naam: str = "Profiel over de dag", fig=None,
+                reken: list[str] | None = None, noot: str = "") -> None:
     links, rechts = st.columns([1.7, 1])
     i_max, i_min = int(np.argmax(P)), int(np.argmin(P))
     with links, st.container(border=True):
@@ -52,6 +67,8 @@ def p_en_checks(nr: int, P, kleur: str, checks: list[Check], naam: str = "Profie
         st.markdown(f"**{nr} · {naam}** <span style='color:#52514e;font-size:.85rem;margin-left:.5rem'>{kern}</span>",
                     unsafe_allow_html=True)
         toon(fig if fig is not None else lijn({"profiel": P}, [kleur], "kW", H_GROOT, fmt=",.1f", vlak=True))
+        if reken:
+            st.markdown(rekenregels(reken), unsafe_allow_html=True)
     with rechts, st.container(border=True):
         st.markdown(f"**{nr + 1} · Checks**")
         checktabel(checks)

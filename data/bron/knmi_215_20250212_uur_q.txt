@@ -1,0 +1,37 @@
+# Opmerking: door stationsverplaatsingen en veranderingen in waarneemmethodieken zijn deze tijdreeksen van uurwaarden mogelijk inhomogeen! Dat betekent dat deze reeks van gemeten waarden niet geschikt is voor trendanalyse. Voor studies naar klimaatverandering verwijzen we naar de gehomogeniseerde dagreeksen <http://www.knmi.nl/nederland-nu/klimatologie/daggegevens> of de Centraal Nederland Temperatuur <http://www.knmi.nl/kennis-en-datacentrum/achtergrond/centraal-nederland-temperatuur-cnt>.
+# 
+# SOURCE: ROYAL NETHERLANDS METEOROLOGICAL INSTITUTE (KNMI)
+# Comment: These time series are inhomogeneous because of station relocations and changes in observation techniques. As a result these series are not suitable for trend analysis. For climate change studies we refer to the homogenized series of daily data <http://www.knmi.nl/nederland-nu/klimatologie/daggegevens> or the Central Netherlands Temperature <http://www.knmi.nl/kennis-en-datacentrum/achtergrond/centraal-nederland-temperatuur-cnt>.
+# 
+# STN         LON(east)   LAT(north)  ALT(m)      NAME
+# 215         4.437       52.141      -1.10       Voorschoten 
+# YYYYMMDD  : datum (YYYY=jaar;MM=maand;DD=dag)
+# HH        : tijd (HH=uur; UT.12 UT=13 MET; 14 MEZT. Uurvak 05 loopt van 04.00 UT tot 5.00 UT
+# Q         : Globale straling (in J/cm2) per uurvak / Global radiation (in J/cm2) during the hourly division
+# N         : Bewolking (bedekkingsgraad van de bovenlucht in achtsten); tijdens de waarneming (9=bovenlucht onzichtbaar) / Cloud cover (in octants); at the time of observation (9=sky invisible)
+# STN,YYYYMMDD,HH,    Q
+  215,20250211,   24,    0
+  215,20250212,    1,    0
+  215,20250212,    2,    0
+  215,20250212,    3,    0
+  215,20250212,    4,    0
+  215,20250212,    5,    0
+  215,20250212,    6,    0
+  215,20250212,    7,    0
+  215,20250212,    8,    2
+  215,20250212,    9,   18
+  215,20250212,   10,   36
+  215,20250212,   11,   43
+  215,20250212,   12,   61
+  215,20250212,   13,   16
+  215,20250212,   14,   16
+  215,20250212,   15,   28
+  215,20250212,   16,   16
+  215,20250212,   17,    1
+  215,20250212,   18,    0
+  215,20250212,   19,    0
+  215,20250212,   20,    0
+  215,20250212,   21,    0
+  215,20250212,   22,    0
+  215,20250212,   23,    0
+  215,20250212,   24,    0
