@@ -11,6 +11,7 @@ import pandas as pd
 
 from model import k7_zon
 from model.common import TOL, Check, checks_standaard, dagfractie, nl, p_kw
+from model.data import WONINGTYPEN
 
 
 @dataclass
@@ -34,8 +35,10 @@ class Resultaat:
     checks: list[Check]
 
 
-def bereken(b, p, dag, prof, woningtypen: pd.DataFrame) -> Resultaat:
-    types = woningtypen.assign(e_netto_kwh=woningtypen["woningen"] * woningtypen["e_netto_kwh_per_woning"])
+def bereken(b, p, dag, prof) -> Resultaat:
+    types = pd.DataFrame([{"woningtype": w, "woningen": float(b[f"woningen_{k}"]),
+                           "e_netto_kwh_per_woning": p[f"e_netto_{k}"]} for w, k in WONINGTYPEN.items()])
+    types["e_netto_kwh"] = types["woningen"] * types["e_netto_kwh_per_woning"]
     N = float(types["woningen"].sum())
     e_netto = float(types["e_netto_kwh"].sum())
     e_zon = float(b["zon_kwh_jaar"])  # bruto jaaropwek huidige panelen bij woningen (Zonnedakje)
@@ -55,7 +58,6 @@ def bereken(b, p, dag, prof, woningtypen: pd.DataFrame) -> Resultaat:
               f"{nl(-e_zon * f_zon)} kWh", abs(P_zon.sum() / 4 + e_zon * f_zon) <= TOL * max(1, e_zon * f_zon)),
         Check("Netto dagtotaal = verbruik − opwek", f"{nl(P.sum() / 4)} kWh", f"{nl(e_dag)} kWh",
               abs(P.sum() / 4 - e_dag) <= TOL * max(1, abs(e_dag))),
-        Check("Woningen per type tellen op tot de buurt", nl(N), nl(b["woningen"]), abs(N - b["woningen"]) < TOL),
         Check("Bruto jaarverbruik ≥ netto verbruik (E_jaar ≥ E_netto)", f"{nl(e_jaar_buurt)} kWh", f"≥ {nl(e_netto)} kWh",
               e_jaar_buurt >= e_netto - TOL),
         Check("Bruto jaarverbruik positief (E_jaar > 0)", f"{nl(e_jaar_buurt)} kWh", "> 0", e_jaar_buurt > 0),

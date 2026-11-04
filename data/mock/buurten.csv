@@ -1,2 +1,2 @@
-buurt_code,buurt_naam,woningen,huishoudens,zon_kwh_jaar,gas_m3_per_woning,warmteoplossing,isolatie_reductie,ev_extra,pomp_kw_buurt,wp_aandeel_huidig,zon_potentie_kwh_jaar,zon_benutting_pct,log_bestel_extra,log_truck_extra,zon_bedrijven_kwh_jaar
-BU_MOCK_A,Buurt A,1500,1450,1820000,960,geen,0,0,75,0,5460000,0,0,0,300000
+buurt_code,buurt_naam,woningen_vrijstaand,woningen_twee_onder_een_kap,woningen_hoekwoning,woningen_tussenwoning,woningen_appartement,huishoudens,zon_kwh_jaar,gas_m3_per_woning,zon_potentie_kwh_jaar,zon_bedrijven_kwh_jaar
+BU_MOCK_A,Buurt A,150,225,225,450,450,1450,1820000,960,5460000,300000

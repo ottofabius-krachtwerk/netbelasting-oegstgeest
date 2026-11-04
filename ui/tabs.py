@@ -8,6 +8,7 @@ import streamlit as st
 from model import k1_basis, k2_koken, k3_warmtepomp, k4_laden_auto, k5_logistiek, k6_mkb, k7_zon, k8_batterij
 from model import stapeling as stapeling_model
 from model.common import nl
+from model.data import WONINGTYPEN
 from ui.charts import H_GROOT, KLEUR, MUTED, TIJD, balans, gestapeld, lijn, staven, waterval
 from ui.kaarten import kleur, kn, meta
 from ui.stappen import badge, kop, p_en_checks, stap
@@ -74,11 +75,12 @@ def kaart1(r: k1_basis.Resultaat, p, dag, tag) -> None:
              "P[t] = 4 × N × E × v[t] + 4 × E_zon,jaar × f_zon × v_zon[t], Σ v = +1, Σ v_zon = −1")
     t = r.types
     # A · jaarverbruik
-    stap(1, "Aantal woningen", nl(r.N), "woningen", tag=tag("woningtypen"),
+    stap(1, "Aantal woningen", nl(r.N), "woningen", tag=tag("buurten"),
          reken=[" + ".join(nl(n) for n in t["woningen"]) + f" = {nl(r.N)} woningen"],
          uitleg="Som van de woningen per woningtype in de buurt.",
          bron="CBS (woningen per woningtype per buurt)")
-    stap(2, "Netto jaarverbruik", nl(r.e_netto / 1e3), "MWh/jaar", tag=tag("woningtypen"),
+    stap(2, "Netto jaarverbruik", nl(r.e_netto / 1e3), "MWh/jaar",
+         tag=tag("buurten", *[f"e_netto_{k}" for k in WONINGTYPEN.values()]),
          reken=[f"{w}: {nl(n)} woningen × {nl(e)} kWh = {nl(n * e / 1e3)} MWh"
                 for w, n, e in zip(t["woningtype"], t["woningen"], t["e_netto_kwh_per_woning"])]
                + [f"totaal: {nl(r.e_netto / 1e3)} MWh"],
@@ -98,7 +100,7 @@ def kaart1(r: k1_basis.Resultaat, p, dag, tag) -> None:
               f"grootste functie (keuze open). De overige daken gaan naar tab {kn(6)}. Zelfde jaar als het netto "
               "verbruik (2025) en de opwek van geplaatste panelen, niet het dakpotentieel.")
     stap(4, "Bruto jaarverbruik", nl(r.e_jaar_buurt / 1e3), "MWh/jaar",
-         tag=tag("woningtypen", "buurten"),
+         tag=tag("buurten"),
          reken=[f"{nl(r.e_netto / 1e3)} MWh netto + {nl(r.e_zon_bruto / 1e3)} MWh zon = {nl(r.e_jaar_buurt / 1e3)} MWh",
                 f"per woning: {nl(r.e_jaar_buurt / 1e3)} MWh ÷ {nl(r.N)} woningen = {nl(r.e_jaar)} kWh"],
          uitleg="In het netto verbruik is de zon over het hele jaar al afgetrokken. De volledige bruto opwek komt er "
@@ -267,28 +269,61 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
 def kaart4(r: k4_laden_auto.Resultaat, p, tag) -> None:
     k = kleur(4)
     _kop(4)
-    _formule("Profiel = aantal elektrische auto's × laadenergie per auto op deze dag × laadverloop over de dag",
-             "P[t] = 4 × N × E × v[t], v = (1 − a) × v_ongestuurd + a × v_slim")
+    _formule("Profiel = aantal elektrische auto's × laadenergie per auto op deze dag × laadverloop over de dag; het "
+             "verloop mengt vier profielen: thuis of publiek, standaard of slim",
+             "P[t] = 4 × N × E × v[t], v = Σ gewicht × v_profiel; P95[t] = P[t] + 1,645 × σ[t]")
     stap(1, "Extra elektrische auto's", nl(r.N), "auto's", tag=tag("buurten"),
          uitleg="Alleen de toename: het aantal extra EV's in de buurt (zijbalk). Het laden van de huidige EV's zit al "
                 f"in tab {kn(1)}.",
          bron="invoer zijbalk")
-    stap(2, "Laadenergie per auto op deze dag", nl(r.E, 1), "kWh per auto",
-         extra=[("× 365", f"{nl(r.E * 365)} kWh per jaar")],
-         tag=tag("ev_e_dag"),
-         uitleg="Dagwaarde op een winterwerkdag, thuis en openbaar samen.",
-         bron="onderbouwing open (7 tot 9 kWh volgens de rekenkaart)")
-    stap(3, "Laadverloop: ongestuurd, slim en gemengd", f"{nl(r.a * 100)} %", "slim laden",
-         lijn({"ongestuurd": _pct(r.v_ongestuurd), "slim": _pct(r.v_slim), "gemengd": _pct(r.v)},
-              [KLEUR[0], KLEUR[1], KLEUR[2]], VERLOOP, fmt=".2f"),
-         extra=[("piek ongestuurd", f"{nl(_piek_per_eenheid(r.E, r.v_ongestuurd), 2)} kW per auto"),
-                ("gemengd", f"{nl(_piek_per_eenheid(r.E, r.v), 2)} kW per auto")],
-         tag=tag("ev_ongestuurd", "ev_slim", "slim_aandeel"),
-         uitleg="Het gemengde verloop weegt ongestuurd en slim laden met het aandeel slim laden (% van alle EV's, "
-                "extra). Aantal en laadenergie veranderen niet. Verlopen: mock tot de ElaadNL-dataset "
-                "gekozen is.",
-         bron="ElaadNL gemeten aggregaat (dataset open) · aandeel slim laden: invoer zijbalk")
-    p_en_checks(4, r.P, k, r.checks)
+    e_tot = r.N * r.E
+    stap(2, "Laadenergie op deze dag", nl(e_tot), "kWh", tag=tag("ev_e_dag"),
+         reken=[f"{nl(r.N)} auto's × {nl(r.E, 1)} kWh = {nl(e_tot)} kWh",
+                f"publiek: {nl(e_tot)} kWh × {nl(r.q * 100)} % = {nl(e_tot * r.q)} kWh",
+                f"thuis: {nl(e_tot)} kWh × {nl(100 - r.q * 100)} % = {nl(e_tot * (1 - r.q))} kWh"],
+         uitleg="Laadenergie per auto per werkdag, alleen laden in de buurt (thuis en bij publieke laadpunten). "
+                "Verdeeld met het aandeel publiek laden (zijbalk).",
+         bron="laadenergie: onderbouwing open (7 tot 9 kWh volgens de rekenkaart; een thuislaadpunt laadt volgens "
+              "ElaadNL 7,0 kWh per werkdag) · aandeel publiek: invoer zijbalk")
+    g = {n: w * 100 for n, w in r.gewichten.items()}
+    q, at, ap = r.q * 100, r.a_thuis * 100, r.a_publiek * 100
+    stap(3, "Laadverloop: vier profielen en het mengsel", _hoogste(r.v), "hoogste kwartier",
+         lijn({**{n: _pct(vv) for n, vv in r.vormen.items()}, "mengsel": _pct(r.v)},
+              [KLEUR[0], KLEUR[1], KLEUR[2], KLEUR[3], MUTED], VERLOOP, fmt=".2f"),
+         reken=[f"thuis standaard: (100 % − {nl(q)} %) × (100 % − {nl(at)} %) = {nl(g['thuis standaard'])} %",
+                f"thuis slim: (100 % − {nl(q)} %) × {nl(at)} % = {nl(g['thuis slim'])} %",
+                f"publiek standaard: {nl(q)} % × (100 % − {nl(ap)} %) = {nl(g['publiek standaard'])} %",
+                f"publiek slim: {nl(q)} % × {nl(ap)} % = {nl(g['publiek slim'])} %"],
+         tag=tag(*k4_laden_auto.KOLOM.values()),
+         uitleg="Het mengsel weegt de vier profielen met het aandeel publiek laden en het aandeel slim laden per "
+                "locatie. Hoe we aan de profielen komen: ElaadNL heeft per laadpunt profielen gegenereerd voor 2025 (50 "
+                "thuislaadpunten, 100 publieke laadpunten, standaard en slim). Per kwartier nemen we het gemiddelde "
+                "over alle laadpunten en de 261 werkdagen van 2025 en schalen dat tot een vorm van 100 %. Slim "
+                "thuisladen is een aanname: vlak tussen 01:00 en 06:00.",
+         bron="ElaadNL gegenereerde laadpuntprofielen 2025 (indicatief) · slim thuis: aanname · aandelen: invoer zijbalk")
+    pub = r.laadpunten["publiek standaard"] + r.laadpunten["publiek slim"]
+    stap(4, "Publieke laadpunten in de buurt (ter info)", nl(pub), "laadpunten", tag=tag("ev_ongestuurd_publiek", "ev_slim_publiek"),
+         reken=[f"standaard: {nl(e_tot * r.gewichten['publiek standaard'])} kWh ÷ "
+                f"{nl(r.e_punt['publiek standaard'], 1)} kWh per laadpunt = {nl(r.laadpunten['publiek standaard'], 1)}",
+                f"slim: {nl(e_tot * r.gewichten['publiek slim'])} kWh ÷ {nl(r.e_punt['publiek slim'], 1)} kWh per "
+                f"laadpunt = {nl(r.laadpunten['publiek slim'], 1)}"],
+         uitleg="Hoeveel publieke laadpunten de publieke laadenergie vraagt, als elk laadpunt laadt zoals een "
+                "gemiddeld ElaadNL-laadpunt op een werkdag. Een publiek laadpunt bedient meerdere auto's; thuis is "
+                "het één laadpunt per auto.",
+         bron="ElaadNL gegenereerde laadpuntprofielen 2025 (energie per laadpunt per werkdag)")
+    i, j = int(np.argmax(r.P)), int(np.argmax(r.P95))
+    stap(5, "Gelijktijdigheid: 95 %-grens", nl(r.P95[j]), "kW", tag=tag(*[f"{c}_sd" for c in k4_laden_auto.KOLOM.values()]),
+         fig=lijn({"verwacht": r.P, "95 %-grens": r.P95}, [k, k], "kW", fmt=",.0f", stippel=("95 %-grens",)),
+         reken=[f"verwacht: {nl(r.P[i])} kW om {TIJD[i]}",
+                f"95 %-grens: {nl(r.P[j])} kW + 1,645 × {nl(r.sigma[j])} kW = {nl(r.P95[j])} kW om {TIJD[j]}"],
+         uitleg="Elk laadpunt laadt anders; met weinig auto's valt de piek daardoor vaker hoger uit dan het gemiddelde. "
+                "Per profiel: aantal laadpunten (energie ÷ energie per laadpunt; thuis één per auto) × de spreiding per "
+                "laadpunt uit de ElaadNL-data; de spreiding groeit met de wortel van het aantal. De vier profielen zijn "
+                "onafhankelijk. 95 % kans dat een kwartier onder de grens blijft (normale benadering, eenzijdig). Slim "
+                "thuis heeft geen spreiding (aanname).",
+         bron="ElaadNL gegenereerde laadpuntprofielen 2025 (spreiding per laadpunt over laadpunten en werkdagen)")
+    p_en_checks(6, r.P, k, r.checks,
+                fig=lijn({"verwacht": r.P, "95 %-grens": r.P95}, [k, k], "kW", H_GROOT, fmt=",.1f", stippel=("95 %-grens",)))
     _vast(4)
 
 
@@ -345,14 +380,20 @@ def kaart2(r: k2_koken.Resultaat, tag) -> None:
             "Extra huishoudens met elektrisch koken", "huishoudens",
             f"Huishoudens × extra aandeel elektrisch koken (% van alle huishoudens, bovenop nu). Huidig elektrisch "
             f"koken zit al in tab {kn(1)}.",
-            "Kookenergie per huishouden op deze dag", "kWh per huishouden", "Dagwaarde op een winterwerkdag.",
-            "Kookprofiel van een groep huishoudens; de gelijktijdigheid zit in het verloop.",
+            "Kookenergie per huishouden op deze dag", "kWh per huishouden",
+            "200 kWh per jaar voor elektrisch koken ÷ 365. Koken verschilt nauwelijks per seizoen, dus het "
+            "jaargemiddelde geldt ook voor een winterwerkdag. Omgerekend uit het gasverbruik voor koken, met de hogere "
+            "efficiëntie van elektrisch koken.",
+            "Kookprofiel van een groep huishoudens op een winterwerkdag; de gelijktijdigheid zit in het verloop. Hoe we "
+            "eraan komen: de RAMP-kookprofielen voor Nederland (gesimuleerd met Nederlandse maaltijdtijden), "
+            "gemiddeld over de werkdagen van december tot en met februari, omgezet van UTC naar wintertijd. RAMP "
+            "neemt Italiaans kookgedrag over met elke dag een warme lunch; die middagpiek hebben we verlaagd tot "
+            "12,5 % van de dag (aanname).",
             "Huishoudens", r.huishoudens, "koken_e_dag", "koken", ("buurten", "koken_penetratie_groei"), tag,
             ("Klimaatmonitor (huishoudens per buurt) · extra aandeel: invoer zijbalk",
-             "bron open: Liander/BAT, monitoring aardgasvrije wijken, TNO of Milieu Centraal; bij voorkeur dezelfde "
-             "bron als het verloop",
-             "kookprofiel: bron open (Liander/BAT, monitoring aardgasvrije wijken, TNO of Milieu Centraal; terugval UK "
-             "Household Electricity Survey)"))
+             "ECN-notitie ECN-N--14-024 (ECN voor RVO, 2014): 211 kWh per jaar · Milieu Centraal: inductie 175 kWh per "
+             "jaar · afgerond 200 kWh per jaar",
+             "RAMP-kookprofielen NL (Lombardi en Pickering, TU Delft/ETH, Zenodo 6579421, 2022) · middagpiek: aanname"))
     _vast(2)
 
 
@@ -429,8 +470,13 @@ def stapeling(r: stapeling_model.Resultaat, kleuren: list[str]) -> None:
     _kop(9)
     _formule("Profiel van de buurt = de profielen van alle tabs opgeteld",
              "P_buurt[t] = Σ P[t]")
+    j = r.i_piek95
     stap(1, "Piek van de buurt", nl(r.P_tot[i]), "kW", extra=[("om", TIJD[i]), ("laagste", f"{nl(r.P_tot.min())} kW")],
-         uitleg="Hoogste kwartier van het opgetelde profiel.",
+         reken=[f"verwacht: {nl(r.P_tot[i])} kW om {TIJD[i]}",
+                f"95 %-grens: {nl(r.P95[j])} kW om {TIJD[j]} (+{nl(r.P95[j] - r.P_tot[j])} kW door de spreiding van "
+                f"laden personenauto's)"],
+         uitleg="Hoogste kwartier van het opgetelde profiel. De 95 %-grens telt de spreiding van het laden van "
+                f"personenauto's op (tab {kn(4)}); de andere tabs hebben nog geen spreiding.",
          bron="de profielen van de tabs")
     stap(2, f"Bijdrage per tab op het piekkwartier ({TIJD[i]})", None,
          fig=staven(r.tabel["kaart"], r.tabel["op_piek"], kleuren=kleuren, eenheid="kW"),
@@ -442,7 +488,8 @@ def stapeling(r: stapeling_model.Resultaat, kleuren: list[str]) -> None:
          uitleg="Hoogste kwartier van elke tab apart; bij zon de grootste opwek. Vallen die samen, dan stapelt de "
                 "piek.",
          bron="de profielen van de tabs")
-    p_en_checks(4, r.P_tot, KLEUR[0], r.checks, naam="Profiel van de buurt", fig=gestapeld(r.P, kleuren, totaal=r.P_tot))
+    p_en_checks(4, r.P_tot, KLEUR[0], r.checks, naam="Profiel van de buurt",
+                fig=gestapeld(r.P, kleuren, totaal=r.P_tot, grens=("95 %-grens", r.P95)))
 
 
 def kaart8(r: k8_batterij.Resultaat, p, tag) -> None:
@@ -470,13 +517,19 @@ def kaart8(r: k8_batterij.Resultaat, p, tag) -> None:
          uitleg=f"Gemiddelde woning uit tab {kn(1)} met de zon van één batterijwoning (kWp × jaaropbrengst per kWp, verloop als tab {kn(7)}). Alleen het "
                 "overschot kan de batterij met zelfconsumptie laden.",
          bron=f"tab {kn(1)} (verbruik per woning) · tab {kn(7)} (verloop zon) · zonnepanelen per batterijwoning: invoer zijbalk")
-    stap(4, "Day-ahead prijs", f"{int(r.goedkoop.sum())}", "goedkoopste en duurste kwartieren",
+    goedkoop, duur = r.prijs[r.goedkoop].mean(), r.prijs[r.duur].mean()
+    stap(4, "Day-ahead prijs: aansturing van de batterij", f"{int(r.goedkoop.sum())}",
+         "goedkoopste en duurste kwartieren",
          lijn({"prijs": r.prijs}, [KLEUR[1]], "€/MWh", fmt=",.0f"), tag=tag("prijs"),
-         extra=[("laden rond", ", ".join(TIJD[i] for i in np.flatnonzero(r.goedkoop)[:3]) + " …"),
-                ("ontladen rond", ", ".join(TIJD[i] for i in np.flatnonzero(r.duur)[:3]) + " …")],
+         reken=[f"laden: {', '.join(TIJD[i] for i in np.flatnonzero(r.goedkoop))} (gemiddeld {nl(goedkoop)} €/MWh)",
+                f"ontladen: {', '.join(TIJD[i] for i in np.flatnonzero(r.duur))} (gemiddeld {nl(duur)} €/MWh)",
+                f"verschil {nl(duur - goedkoop)} €/MWh; het rendementsverlies kost {nl(goedkoop * (1 / p['bat_eta'] - 1))} €/MWh"],
          uitleg="Alleen voor zelfconsumptie + day-ahead: laden uit het net in de goedkoopste kwartieren en op vol "
-                "vermogen ontladen in de duurste; zoveel kwartieren als nodig om vol of leeg te gaan.",
-         bron="day-ahead prijs Nederland, 18-02-2025 (bron nog te kiezen)")
+                "vermogen ontladen in de duurste; zoveel kwartieren als nodig om vol of leeg te gaan. De prijs is het "
+                "gemiddelde per kwartier van de 5 koudste werkdagen van winter 2025/26 (5, 6, 7 en 29 januari en 3 "
+                "februari 2026), omdat de echte prijs van 18-02-2025 niet bij een koude ontwerpdag past.",
+         bron="EPEX day-ahead NL per kwartier (Energy Quantified), gemiddelde van de 5 koudste werkdagen winter "
+              "2025/26 (bevolkingsgewogen temperatuur)")
     stap(5, "Laden en ontladen per kWh batterij", r.modus, "gebruikt (keuze in de zijbalk)",
          lijn({m: md.v for m, md in r.modi.items()}, [KLEUR[0], KLEUR[1]], "kW per kWh", fmt=".3f"),
          extra=[(m, f"verlies {nl(md.v.sum() / 4, 3)} kWh per kWh batterij") for m, md in r.modi.items()],

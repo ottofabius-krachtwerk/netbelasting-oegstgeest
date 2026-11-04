@@ -22,24 +22,19 @@ def kleur(kaart: int) -> str:
     return KLEUR[kn(kaart) - 1]
 
 
-# Methodiek vastgesteld (True) of open (False), per kaart. Stapeling = 9.
-VASTGESTELD = {k: True for k in VOLGORDE[:6]}  # tab 1 tot en met 6: koken, woningen, laden, batterij, warmtepomp, zon
-
-
 def meta(kaart: int) -> tuple[str, str]:
     """Korte regels 'Invoer' en 'Bronnen' bovenaan een tab. Bronnen gelden ook waar nu mockdata staat."""
     t = kn
     return {
         2: ("huishoudens per buurt · extra aandeel elektrisch koken · kookenergie per huishouden · verloop koken",
-            "Klimaatmonitor (huishoudens) · kookverloop en kookenergie: open (Liander/BAT, monitoring aardgasvrije "
-            "wijken, TNO, Milieu Centraal)"),
+            "Klimaatmonitor (huishoudens) · kookenergie: ECN 2014 en Milieu Centraal · kookverloop: RAMP-kookprofielen NL "
+            "(2022), middagpiek verlaagd (aanname)"),
         5: ("extra e-bestelbussen en e-trucks per buurt (aantal; alleen de toename) · laadenergie per voertuigtype · "
             "laadprofiel per voertuigtype",
             "invoer zijbalk · laadprofiel: vlak (aanname) · laadenergie: aanname, bron open"),
-        4: ("extra EV's per buurt (aantal; alleen de toename) · aandeel slim laden · laadenergie per auto · "
-            "laadverloop ongestuurd en slim",
-            "invoer zijbalk · ElaadNL gemeten "
-            "aggregaat (dataset open)"),
+        4: ("extra EV's per buurt (aantal; alleen de toename) · aandeel publiek laden · aandeel slim laden thuis en "
+            "publiek · laadenergie per auto · laadverloop en spreiding per laadpunt, thuis en publiek, standaard en slim",
+            "invoer zijbalk · ElaadNL gegenereerde laadpuntprofielen 2025 · slim thuis: aanname"),
         7: ("resterende dakpotentie zon per buurt (alle daken) · benutting in % (alleen de toename) · instraling op deze "
             "dag en per jaar",
             "Zonnedakje (resterende dakpotentie) · KNMI station 215 (instraling)"),
@@ -61,7 +56,8 @@ def meta(kaart: int) -> tuple[str, str]:
             "(instraling)"),
         8: (f"woningen · adoptiegraad · capaciteit en vermogen per batterij · rendement · batterijmodus · uit tab {t(1)}: "
             f"last per woning · uit tab {t(7)}: zon per kWp · day-ahead prijs",
-            "open (Essent batterijwaardering, literatuur, NL Flex) · day-ahead prijs: mock"),
+            "open (Essent batterijwaardering, literatuur, NL Flex) · day-ahead prijs: EPEX NL, gemiddelde 5 koudste "
+            "werkdagen winter 2025/26 (Energy Quantified)"),
         9: ("profielen uit alle tabs (1 tot en met 8)",
             "geen eigen bronnen"),
     }[kaart]

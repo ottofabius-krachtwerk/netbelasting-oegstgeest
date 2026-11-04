@@ -32,12 +32,14 @@ def _opmaak(fig: go.Figure, hoogte: int, eenheid: str = "", tijdas: bool = True,
 
 
 def lijn(reeksen: dict, kleuren=None, eenheid: str = "", hoogte: int = H_KLEIN, fmt: str = ".4f",
-         vlak: bool = False, tickformat: str | None = None, hlijn: tuple[float, str] | None = None) -> go.Figure:
+         vlak: bool = False, tickformat: str | None = None, hlijn: tuple[float, str] | None = None,
+         stippel: tuple[str, ...] = ()) -> go.Figure:
     kleuren = kleuren or KLEUR
     fig = go.Figure()
     for i, (naam, y) in enumerate(reeksen.items()):
         k = kleuren[i % len(kleuren)]
-        fig.add_scatter(x=UUR, y=np.asarray(y), name=naam, mode="lines", line=dict(color=k, width=2, shape="hv"),
+        lijnstijl = dict(color=k, width=2, shape="hv", dash="dot" if naam in stippel else None)
+        fig.add_scatter(x=UUR, y=np.asarray(y), name=naam, mode="lines", line=lijnstijl,
                         fill="tozeroy" if vlak else None, fillcolor=k + "26", customdata=TIJD,
                         hovertemplate=f"%{{y:{fmt}}}<extra>{naam}</extra>")
     if hlijn:
@@ -83,7 +85,8 @@ def waterval(labels, waarden, maten, eenheid: str = "", hoogte: int = H_KLEIN) -
     return fig
 
 
-def gestapeld(reeksen: dict, kleuren, eenheid: str = "kW", hoogte: int = H_GROOT, totaal=None) -> go.Figure:
+def gestapeld(reeksen: dict, kleuren, eenheid: str = "kW", hoogte: int = H_GROOT, totaal=None,
+              grens: tuple[str, np.ndarray] | None = None) -> go.Figure:
     fig = go.Figure()
     for (naam, y), k in zip(reeksen.items(), kleuren):
         fig.add_bar(x=UUR + 0.125, y=np.asarray(y), name=naam, marker_color=k, width=0.25,
@@ -91,6 +94,10 @@ def gestapeld(reeksen: dict, kleuren, eenheid: str = "kW", hoogte: int = H_GROOT
     if totaal is not None:
         fig.add_scatter(x=UUR + 0.125, y=np.asarray(totaal), name="Totaal", mode="lines",
                         line=dict(color=INKT, width=2), hovertemplate=f"%{{y:,.0f}} {eenheid}<extra>Totaal</extra>")
+    if grens is not None:  # bijv. de 95 %-grens van het totaal
+        fig.add_scatter(x=UUR + 0.125, y=np.asarray(grens[1]), name=grens[0], mode="lines",
+                        line=dict(color=INKT, width=1.5, dash="dot"),
+                        hovertemplate=f"%{{y:,.0f}} {eenheid}<extra>{grens[0]}</extra>")
     fig.update_layout(barmode="relative", bargap=0)
     return _opmaak(fig, hoogte, eenheid, legenda=True)
 

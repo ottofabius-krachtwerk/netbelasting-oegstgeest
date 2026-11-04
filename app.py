@@ -4,22 +4,16 @@ import streamlit as st
 
 from model import k1_basis, k2_koken, k3_warmtepomp, k4_laden_auto, k5_logistiek, k6_mkb, k7_zon, k8_batterij, stapeling
 from model.data import DATA, WARMTEOPLOSSINGEN, DataFout, laad
-from ui import tabs
-from ui.kaarten import VASTGESTELD, VOLGORDE, kaartnaam, kleur
+from ui import invoer, tabs
+from ui.kaarten import VOLGORDE, kaartnaam, kleur
 
 st.set_page_config(page_title="Netbelasting Oegstgeest", layout="wide")
 st.markdown("<style>.block-container{padding-top:2.2rem;padding-bottom:1rem}"
             "[data-testid='stMetricValue']{font-size:1.4rem}</style>", unsafe_allow_html=True)
 
-BADGE = {"mock": ":gray-badge[mock]", "placeholder": ":orange-badge[placeholder]"}
 
 
-def _tablabel(kaart: int, tekst: str) -> str:
-    """Tabtitel gekleurd naar de status van de methodiek: groen vastgesteld, rood open."""
-    return f":{'green' if VASTGESTELD.get(kaart, False) else 'red'}[{tekst}]"
-
-
-TABLABEL = {k: _tablabel(k, kaartnaam(k)) for k in VOLGORDE} | {9: _tablabel(9, f"{len(VOLGORDE) + 1} Stapeling")}
+TABLABEL = {k: kaartnaam(k) for k in VOLGORDE} | {9: f"{len(VOLGORDE) + 1} Stapeling"}
 # De gekozen tab (uit de vorige run) bepaalt welke groep in de zijbalk open staat
 ACTIEF = {v: k for k, v in TABLABEL.items()}.get(st.session_state.get("tabkeuze"), VOLGORDE[0])
 
@@ -51,20 +45,28 @@ with st.sidebar:
     buurt = b["buurt_naam"]
     keuzes = {}
 
+    def _veld(naam: str, v: invoer.Veld, per_buurt: bool = False, standaard: float | None = None) -> float:
+        """Eén invoerveld; per-buurt-velden hebben de buurtnaam in het label en een eigen sleutel per buurt."""
+        label = f"{v.label} {buurt} ({v.eenheid})" if per_buurt else f"{v.label} ({v.eenheid})"
+        return st.number_input(label, float(v.min), float(v.max), float(v.standaard if standaard is None else standaard),
+                               float(v.stap), key=f"{bron}:{naam}:{code}" if per_buurt else f"{bron}:{naam}",
+                               help=v.uitleg or None)
+
     def _keuzes(kaart: int) -> None:
-        """Instellingen die bij één tab horen, bovenaan de groep van die tab. Per-buurt-invoer heeft de buurtnaam."""
+        """Keuzes en per-buurt-invoer die bij één tab horen, bovenaan de groep van die tab."""
+        for naam, v in invoer.PER_BUURT.items():
+            if v.kaart == kaart and kaart != 3:
+                b[naam] = _veld(naam, v, per_buurt=True)
         if kaart == 3:
             b["warmteoplossing"] = st.selectbox(f"Warmteoplossing ({buurt})", WARMTEOPLOSSINGEN,
-                                                index=WARMTEOPLOSSINGEN.index(b["warmteoplossing"]),
-                                                key=f"{bron}:wo:{code}")
-            b["wp_aandeel_huidig"] = st.number_input(f"Woningen met nu al een warmtepomp {buurt} (% van alle woningen; "
-                                                     "die gaan niet nog eens over)", 0.0, 100.0,
-                                                     float(b["wp_aandeel_huidig"]), 1.0, key=f"{bron}:wphuidig:{code}")
-            b["isolatie_reductie"] = st.number_input(f"Isolatie {buurt} (% minder warmtevraag per woning dan nu)", 0.0, 80.0,
-                                                     float(b["isolatie_reductie"]), 1.0, key=f"{bron}:iso:{code}")
+                                                index=WARMTEOPLOSSINGEN.index(invoer.WARMTEOPLOSSING),
+                                                key=f"{bron}:warmteoplossing:{code}")
+            for naam in ("wp_aandeel_huidig", "isolatie_reductie"):
+                b[naam] = _veld(naam, invoer.PER_BUURT[naam], per_buurt=True)
             wo = b["warmteoplossing"]
             keuzes["pomp_invoer"], keuzes["wp_vorm"] = k3_warmtepomp.POMPINVOER[0], k3_warmtepomp.VORMEN[0]
             keuzes["mt_opwek"] = k3_warmtepomp.MT_OPWEK[0]
+            b["pomp_kw_buurt"] = invoer.ALGEMEEN["pomp_w_woning"].standaard * b["woningen"] / 1000
             if wo == "MT":
                 keuzes["mt_opwek"] = st.radio(f"Warmtebron MT-net 70 °C ({buurt})", k3_warmtepomp.MT_OPWEK,
                                               format_func=lambda o: {"buiten beschouwing": "warmteproductie buiten "
@@ -74,26 +76,15 @@ with st.sidebar:
             if wo in ("ZLT", "MT"):  # alleen bij een warmtenet
                 keuzes["pomp_invoer"] = st.radio("Pompvermogen warmtenet opgeven als", k3_warmtepomp.POMPINVOER,
                                                  horizontal=True, key=f"{bron}:pompinvoer")
-                if keuzes["pomp_invoer"] == "totaal buurt":
+                if keuzes["pomp_invoer"] == "totaal buurt":  # standaard: het pompvermogen per woning × woningen
                     b["pomp_kw_buurt"] = st.number_input(f"Totaal pompvermogen warmtenet {buurt} (kW, constant)", 0.0,
-                                                         5000.0, float(b["pomp_kw_buurt"]), 5.0, key=f"{bron}:pomp:{code}")
+                                                         5000.0, float(b["pomp_kw_buurt"]), 5.0,
+                                                         key=f"{bron}:pomp_kw_buurt:{code}")
             else:  # alleen bij warmtepompen in de woning
                 keuzes["wp_vorm"] = st.radio("Verloop warmtepomp", k3_warmtepomp.VORMEN, horizontal=True,
                                              format_func=lambda v: {"vlak": "vlak (ondergrens)",
                                                                     "gemeten": "gemeten aggregaat"}[v],
                                              key=f"{bron}:wpvorm")
-        elif kaart == 7:
-            b["zon_benutting_pct"] = st.number_input(f"Extra zon {buurt} (% van de resterende dakpotentie, alle daken "
-                                                     "in de buurt)", 0.0, 50.0, float(b["zon_benutting_pct"]), 1.0,
-                                                     key=f"{bron}:zon:{code}")
-        elif kaart == 5:
-            b["log_bestel_extra"] = st.number_input(f"Extra e-bestelbussen {buurt} (aantal dat in de buurt laadt)", 0.0,
-                                                    10000.0, float(b["log_bestel_extra"]), 1.0, key=f"{bron}:bestel:{code}")
-            b["log_truck_extra"] = st.number_input(f"Extra e-trucks {buurt} (aantal dat in de buurt laadt)", 0.0,
-                                                   10000.0, float(b["log_truck_extra"]), 1.0, key=f"{bron}:truck:{code}")
-        elif kaart == 4:
-            b["ev_extra"] = st.number_input(f"Extra EV's {buurt} (aantal, bovenop de huidige EV's in tab 2)", 0.0,
-                                            100000.0, float(b["ev_extra"]), 10.0, key=f"{bron}:ev:{code}")
         elif kaart == 8:
             keuzes["bat_modus"] = st.radio("Batterijmodus", k8_batterij.MODI, key=f"{bron}:batmodus")
             keuzes["bat_kwh"] = st.radio("Capaciteit per thuisbatterij", k8_batterij.GROOTTES, index=1, horizontal=True,
@@ -109,31 +100,27 @@ with st.sidebar:
             return b["warmteoplossing"] in ("ZLT", "MT") and keuzes["pomp_invoer"] == "per woning"
         return True
 
-    p = {}
+    p = {naam: float(r["waarde"]) for naam, r in data.parameters.iterrows()}  # data en aannames, onderaan de tab
+    met_keuzes = {v.kaart for v in invoer.PER_BUURT.values()} | {3, 8}
     for kaart in VOLGORDE:
-        alle = data.parameters[data.parameters["kaart"] == kaart]
-        for naam, r in alle[alle["rol"] != "invoer"].iterrows():  # data en aannames: vast, getoond onderaan de tab
-            p[naam] = float(r["waarde"])
-        rijen = alle[alle["rol"] == "invoer"]
-        if rijen.empty and kaart not in (3, 4, 5, 6, 7, 8):
+        velden = {n: v for n, v in invoer.ALGEMEEN.items() if v.kaart == kaart}
+        if not velden and kaart not in met_keuzes:
             continue
         with st.expander(kaartnaam(kaart).replace(" ", " · ", 1), expanded=kaart == ACTIEF):
             _keuzes(kaart)
-            for naam, r in rijen.iterrows():
-                if not _relevant(naam):  # niet van toepassing bij deze keuze: standaardwaarde, geen veld
-                    p[naam] = float(r["waarde"])
-                    continue
-                label = f"{r['label']} ({r['eenheid']}) {BADGE.get(r['status'], '')}"
-                p[naam] = st.number_input(label, float(r["min"]), float(r["max"]), float(r["waarde"]),
-                                          float(r["stap"]), key=f"{bron}:{naam}",
-                                          help=r["bron"] if isinstance(r["bron"], str) else None)
+            for naam, v in velden.items():
+                p[naam] = _veld(naam, v) if _relevant(naam) else float(v.standaard)  # niet van toepassing: standaard
+
+    def _status(*namen: str) -> str:
+        """Status van data en aannames; invoervelden zijn keuzes en tellen niet mee."""
+        return data.status(*[n for n in namen if n not in invoer.NAMEN])
+
     wp_vorm, bat_modus = keuzes["wp_vorm"], keuzes["bat_modus"]
     p["bat_kwh"] = keuzes["bat_kwh"]
 
 dag, prof = data.dag, data.profielen
 tabs.VASTE_WAARDEN = data.parameters
-wt = data.woningtypen[data.woningtypen["buurt_code"] == code]
-r1 = k1_basis.bereken(b, p, dag, prof, wt)
+r1 = k1_basis.bereken(b, p, dag, prof)
 
 datum = pd.Timestamp(dag["datum"].iloc[0])
 kop = f"#### Netbelasting · {b['buurt_naam']} · {['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'][datum.weekday()]} {datum:%d-%m-%Y}"
@@ -152,25 +139,25 @@ r6 = k6_mkb.bereken(b, p, dag, data.bedrijfstakken)
 
 if t[3].open:
     with t[3]:
-        tabs.kaart3(r3, varianten, p, data.status, b["isolatie_reductie"])
+        tabs.kaart3(r3, varianten, p, _status, b["isolatie_reductie"])
 if t[4].open:
     with t[4]:
-        tabs.kaart4(r4, p, data.status)
+        tabs.kaart4(r4, p, _status)
 if t[7].open:
     with t[7]:
-        tabs.kaart7(r7, p, data.status)
+        tabs.kaart7(r7, p, _status)
 if t[1].open:
     with t[1]:
-        tabs.kaart1(r1, p, dag, data.status)
+        tabs.kaart1(r1, p, dag, _status)
 if t[2].open:
     with t[2]:
-        tabs.kaart2(r2, data.status)
+        tabs.kaart2(r2, _status)
 if t[5].open:
     with t[5]:
-        tabs.kaart5(r5, p, data.status)
+        tabs.kaart5(r5, p, _status)
 if t[6].open:
     with t[6]:
-        tabs.kaart6(r6, p, data.status)
+        tabs.kaart6(r6, p, _status)
 r8 = k8_batterij.bereken(b, p, dag, r1.P_verbruik / r1.N, r7.per_kwp, bat_modus)
 
 # Stapeling van alle tabs, in tabvolgorde
@@ -182,10 +169,10 @@ e_kaart = {kaartnaam(k): (float((r.sectoren["teken"] * r.sectoren["E"]).sum()) i
                           r.e_dag if k == 1 else
                           sum(kl.N * kl.E for kl in r.klassen.values()) if k == 5 else
                           (-1 if k == 7 else 1) * r.N * r.E) for k, r in IN_STAPEL.items()}
-rs = stapeling.bereken(P_kaart, e_kaart)
+rs = stapeling.bereken(P_kaart, e_kaart, sigma=r4.sigma)  # spreiding: alleen laden personenauto's
 if t[8].open:
     with t[8]:
-        tabs.kaart8(r8, p, data.status)
+        tabs.kaart8(r8, p, _status)
 if t[9].open:
     with t[9]:
         tabs.stapeling(rs, [kleur(k) for k in IN_STAPEL])

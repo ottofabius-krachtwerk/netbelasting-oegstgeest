@@ -1,4 +1,7 @@
-"""Stapeling: P_b[t] = Σ kaarten P_s,b[t]. Piek in kW, geen omrekening naar kVA of MSR."""
+"""Stapeling: P_b[t] = Σ kaarten P_s,b[t]. Piek in kW, geen omrekening naar kVA of MSR.
+
+95 %-grens: P_b[t] + 1,645 × σ[t], met σ de spreiding van de tabs die er een hebben (nu alleen laden personenauto's).
+"""
 from dataclasses import dataclass
 
 import numpy as np
@@ -15,10 +18,13 @@ class Resultaat:
     i_piek: int
     tabel: pd.DataFrame
     checks: list[Check]
+    P95: np.ndarray    # 95 %-grens van het totaal per kwartier
+    i_piek95: int
 
 
-def bereken(P: dict, dagenergie: dict) -> Resultaat:
+def bereken(P: dict, dagenergie: dict, sigma=None, z: float = 1.645) -> Resultaat:
     P_tot = np.sum(list(P.values()), axis=0)
+    P95 = P_tot + z * (np.zeros_like(P_tot) if sigma is None else np.asarray(sigma))
     i = int(np.argmax(P_tot))
     rijen = []
     for k, p in P.items():
@@ -34,4 +40,6 @@ def bereken(P: dict, dagenergie: dict) -> Resultaat:
         Check(f"Dagtotaal {k} klopt", f"{nl(P[k].sum() / 4)} kWh", f"{nl(e)} kWh", abs(P[k].sum() / 4 - e) <= TOL * max(1, abs(e)))
         for k, e in dagenergie.items()
     ]
-    return Resultaat(P, dagenergie, P_tot, i, tabel, checks)
+    checks.append(Check("95 %-grens ligt overal op of boven het totaal", nl(float((P95 - P_tot).min()), 2), "≥ 0",
+                        bool(np.all(P95 >= P_tot - TOL))))
+    return Resultaat(P, dagenergie, P_tot, i, tabel, checks, P95, int(np.argmax(P95)))

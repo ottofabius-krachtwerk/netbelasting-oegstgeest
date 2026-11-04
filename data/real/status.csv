@@ -1,1 +1,12 @@
 naam,status,bron
+nedu_e1a,bron,"NEDU standaardprofielen elektriciteit 2025 v1.00, E1A_AZI_A, di 18-02-2025 (kwartier = van-tijd, CET)"
+ev_ongestuurd_thuis,bron,"ElaadNL gegenereerde laadpuntprofielen 2025, gemiddelde over laadpunten en de 261 weekdagen (kW per laadpunt)"
+ev_ongestuurd_thuis_sd,bron,"ElaadNL gegenereerde laadpuntprofielen 2025, gemiddelde over laadpunten en de 261 weekdagen (kW per laadpunt), spreiding"
+ev_ongestuurd_publiek,bron,"ElaadNL gegenereerde laadpuntprofielen 2025, gemiddelde over laadpunten en de 261 weekdagen (kW per laadpunt)"
+ev_ongestuurd_publiek_sd,bron,"ElaadNL gegenereerde laadpuntprofielen 2025, gemiddelde over laadpunten en de 261 weekdagen (kW per laadpunt), spreiding"
+ev_slim_publiek,bron,"ElaadNL gegenereerde laadpuntprofielen 2025, gemiddelde over laadpunten en de 261 weekdagen (kW per laadpunt)"
+ev_slim_publiek_sd,bron,"ElaadNL gegenereerde laadpuntprofielen 2025, gemiddelde over laadpunten en de 261 weekdagen (kW per laadpunt), spreiding"
+ev_slim_thuis,aanname,"Vlak van 01:00 tot 06:00, energie per laadpunt gelijk aan thuis standaard (ElaadNL)"
+ev_slim_thuis_sd,aanname,Geen spreiding (aanname)
+prijs,bron,"EPEX day-ahead NL per kwartier, gemiddelde van de 5 koudste werkdagen winter 2025/26 (5, 6, 7 en 29 jan, 3 feb 2026; Energy Quantified)"
+koken,aanname,"RAMP-kookprofielen NL (Lombardi en Pickering, Zenodo 6579421, 2022): winterwerkdagen, UTC naar CET, middagpiek verlaagd tot 12,5 % van de dag (aanname)"

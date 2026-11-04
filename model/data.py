@@ -6,15 +6,17 @@ import pandas as pd
 
 DATA = Path(__file__).resolve().parent.parent / "data"
 
+# woningtype -> sleutel; per type een kolom woningen_<sleutel> in buurten.csv en een parameter e_netto_<sleutel>
+WONINGTYPEN = {"Vrijstaand": "vrijstaand", "2-onder-1-kap": "twee_onder_een_kap", "Hoekwoning": "hoekwoning",
+               "Tussenwoning": "tussenwoning", "Appartement": "appartement"}
 SCHEMA = {
-    "buurten.csv": ["buurt_code", "buurt_naam", "woningen", "huishoudens", "zon_kwh_jaar", "gas_m3_per_woning",
-                    "warmteoplossing", "isolatie_reductie",
-                    "ev_extra", "pomp_kw_buurt", "wp_aandeel_huidig", "zon_potentie_kwh_jaar", "zon_benutting_pct", "log_bestel_extra", "log_truck_extra",
-                    "zon_bedrijven_kwh_jaar"],
-    "woningtypen.csv": ["buurt_code", "woningtype", "woningen", "e_netto_kwh_per_woning"],
+    "buurten.csv": ["buurt_code", "buurt_naam", *[f"woningen_{k}" for k in WONINGTYPEN.values()], "huishoudens",
+                    "zon_kwh_jaar", "gas_m3_per_woning", "zon_potentie_kwh_jaar", "zon_bedrijven_kwh_jaar"],
     "bedrijfstakken.csv": ["bedrijfstak", "e_jaar_kwh_gemeente"],
-    "referentiedag.csv": ["datum", "kwartier", "tijd", "T", "I", "prijs"],
-    "profielen.csv": ["kwartier", "tijd", "nedu_e1a", "wp_aggregaat", "nedu_e3", "koken", "ev_ongestuurd", "ev_slim", "logistiek_bestel",
+    "instraling_dayahead.csv": ["datum", "kwartier", "tijd", "I", "prijs"],
+    "profielen.csv": ["kwartier", "tijd", "nedu_e1a", "wp_aggregaat", "koken",
+                      "ev_ongestuurd_thuis", "ev_ongestuurd_thuis_sd", "ev_slim_thuis", "ev_slim_thuis_sd",
+                      "ev_ongestuurd_publiek", "ev_ongestuurd_publiek_sd", "ev_slim_publiek", "ev_slim_publiek_sd", "logistiek_bestel",
                       "logistiek_truck"],
     "parameters.csv": ["naam", "kaart", "rol", "label", "waarde", "eenheid", "min", "max", "stap", "status", "bron"],
     "status.csv": ["naam", "status", "bron"],
@@ -31,7 +33,6 @@ class DataFout(Exception):
 class Dataset:
     bron: str
     buurten: pd.DataFrame
-    woningtypen: pd.DataFrame
     bedrijfstakken: pd.DataFrame
     dag: pd.DataFrame
     profielen: pd.DataFrame
@@ -59,19 +60,17 @@ def laad(bron: str) -> Dataset:
             fouten.append(f"{bestand}: kolommen ontbreken: {', '.join(mist)}")
         tabellen[bestand] = df
     if not fouten:
-        for bestand in ("referentiedag.csv", "profielen.csv"):
+        for bestand in ("instraling_dayahead.csv", "profielen.csv"):
             if len(tabellen[bestand]) != 96:
                 fouten.append(f"{bestand}: {len(tabellen[bestand])} rijen, verwacht 96")
-        for w in set(tabellen["buurten.csv"]["warmteoplossing"]) - set(WARMTEOPLOSSINGEN):
-            fouten.append(f"buurten.csv: onbekende warmteoplossing '{w}'")
     if fouten:
         raise DataFout(f"data/{bron}/: " + "; ".join(fouten))
     return Dataset(
         bron=bron,
-        buurten=tabellen["buurten.csv"].set_index("buurt_code"),
-        woningtypen=tabellen["woningtypen.csv"],
+        buurten=tabellen["buurten.csv"].set_index("buurt_code").assign(  # woningen = som van de woningtypen
+            woningen=lambda df: df[[f"woningen_{k}" for k in WONINGTYPEN.values()]].sum(axis=1)),
         bedrijfstakken=tabellen["bedrijfstakken.csv"],
-        dag=tabellen["referentiedag.csv"].sort_values("kwartier").reset_index(drop=True),
+        dag=tabellen["instraling_dayahead.csv"].sort_values("kwartier").reset_index(drop=True),
         profielen=tabellen["profielen.csv"].sort_values("kwartier").reset_index(drop=True),
         parameters=tabellen["parameters.csv"].set_index("naam"),
         statussen=tabellen["status.csv"].set_index("naam"),
