@@ -33,10 +33,9 @@ def meta(kaart: int) -> tuple[str, str]:
         2: ("huishoudens per buurt · extra aandeel elektrisch koken · kookenergie per huishouden · verloop koken",
             "Klimaatmonitor (huishoudens) · kookverloop en kookenergie: open (Liander/BAT, monitoring aardgasvrije "
             "wijken, TNO, Milieu Centraal)"),
-        5: ("bestelauto's en trucks per buurt · elektrificatie en groei logistiek · laadenergie per voertuigtype · "
-            "laadverloop per voertuigtype",
-            "CBS 85239NED (bestelauto's Zuid-Holland, via bedrijfsvestigingen naar buurt) · laadprofiel ElaadNL "
-            "(te bevestigen) · laadenergie: open"),
+        5: ("extra e-bestelbussen en e-trucks per buurt (aantal; alleen de toename) · laadenergie per voertuigtype · "
+            "laadprofiel per voertuigtype",
+            "invoer zijbalk · laadprofiel: vlak (aanname) · laadenergie: aanname, bron open"),
         4: ("extra EV's per buurt (aantal; alleen de toename) · aandeel slim laden · laadenergie per auto · "
             "laadverloop ongestuurd en slim",
             "invoer zijbalk · ElaadNL gemeten "
@@ -44,13 +43,14 @@ def meta(kaart: int) -> tuple[str, str]:
         7: ("resterende dakpotentie zon per buurt (alle daken) · benutting in % (alleen de toename) · instraling op deze "
             "dag en per jaar",
             "Zonnedakje (resterende dakpotentie) · KNMI station 215 (instraling)"),
-        6: (f"jaarverbruik per sector per buurt · groei niet-huishoudelijk · sectorprofielen · verloop opwek gelijk "
-            f"aan tab {t(7)}",
-            "Klimaatmonitor (verbruik per sector, 36 GWh in 2024) · BAG gebruiksoppervlak (naar buurt) · sectorprofielen: "
-            "keuze Liander open data (per sector) of NEDU standaardprofielen elektriciteit 2025 (E3)"),
+        6: (f"verbruik per bedrijfstak (gemeente) · aantal buurten · werkdagen · groei niet-huishoudelijk (MWh per jaar) · "
+            f"zon op overige daken, verloop gelijk aan tab {t(7)}",
+            "Klimaatmonitor (elektriciteitsverbruik per bedrijfstak, 36 GWh in 2024) · CBS wijk- en buurtkaart 2025 · "
+            "Zonnedakje (overige daken) · verloop verbruik: vlak, alleen werkdagen (aanname)"),
         3: ("woningen per buurt · aandeel woningen met nu al een warmtepomp (alleen de toename telt hier) · gasverbruik "
             "per woning · warmteoplossing en isolatie per buurt · graaddagen · verloop · COP · "
-            "temperatuur en pompvermogen warmtenet · opwek MT (restwarmte of elektrisch in de buurt)",
+            "temperatuur en pompvermogen warmtenet · warmtebron MT-net (aquathermie TEO/TEA, ondiepe geothermie, of buiten "
+            "beschouwing) · aandeel gasgestuurde piek- en backupvoorziening",
             "Klimaatmonitor (gas per woningtype, woningen) · KNMI station 215 (graaddagen 2025) · "
             "buitentemperatuur: aanname −10 °C · verloop: vlak tot gemeten aggregaatprofiel warmtepompen (mock) · "
             "COP: open"),
@@ -62,6 +62,6 @@ def meta(kaart: int) -> tuple[str, str]:
         8: (f"woningen · adoptiegraad · capaciteit en vermogen per batterij · rendement · batterijmodus · uit tab {t(1)}: "
             f"last per woning · uit tab {t(7)}: zon per kWp · day-ahead prijs",
             "open (Essent batterijwaardering, literatuur, NL Flex) · day-ahead prijs: mock"),
-        9: (f"profielen uit tab {t(2)}, {t(4)}, {t(7)}, {t(6)}, {t(3)}, {t(1)} en {t(8)} (zonder tab {t(5)})",
+        9: ("profielen uit alle tabs (1 tot en met 8)",
             "geen eigen bronnen"),
     }[kaart]

@@ -11,7 +11,9 @@ from model.common import Check, checks_standaard, nl, p_kw, vorm
 
 TECH = {"geen": "ae", "all-electric": "ae", "ZLT": "zlt"}
 POMPINVOER = ["per woning", "totaal buurt"]
-MT_OPWEK = ["restwarmte", "grote warmtepomp", "e-boiler"]  # MT: warmte van buiten de buurt, of elektrisch in de buurt
+# MT (70 °C): warmteproductie buiten beschouwing, of een bron opgewaardeerd met collectieve warmtepompen en WKO
+MT_OPWEK = ["buiten beschouwing", "aquathermie TEO", "aquathermie TEA", "ondiepe geothermie"]
+MT_COP = {"aquathermie TEO": "cop_mt_teo", "aquathermie TEA": "cop_mt_tea", "ondiepe geothermie": "cop_mt_geo"}
 VORMEN = ["vlak", "gemeten"]  # bandbreedte voor all-electric: maximale buffering, of gemeten aggregaatprofiel
 
 
@@ -32,8 +34,8 @@ def n_woningen(oplossing: str, b) -> float:
     return b["woningen"] * (1 - b["wp_aandeel_huidig"] / 100)
 
 
-def cop_dag(oplossing: str, p, mt_opwek: str = "restwarmte") -> float:
-    """Eén COP voor de referentiedag; MT met restwarmte heeft geen elektrische opwek in de buurt (dan nan).
+def cop_dag(oplossing: str, p, mt_opwek: str = MT_OPWEK[0]) -> float:
+    """Eén COP voor de referentiedag; MT zonder meegerekende warmteproductie heeft geen opwek (dan nan).
 
     "geen": geen extra woningen; de COP van all-electric wordt alleen getoond.
     ZLT: COP van de booster lineair met de temperatuur van het warmtenet (a + b × T_net).
@@ -43,11 +45,9 @@ def cop_dag(oplossing: str, p, mt_opwek: str = "restwarmte") -> float:
         return p["cop_ae"]
     if oplossing == "ZLT":
         return p["cop_zlt_a"] + p["cop_zlt_b"] * p["t_net_zlt"]
-    if oplossing == "MT" and mt_opwek == "grote warmtepomp":
-        return p["cop_mt_wp"]
-    if oplossing == "MT" and mt_opwek == "e-boiler":
-        return 1.0
-    return float("nan")  # MT met restwarmte: geen elektrische opwek in de buurt
+    if oplossing == "MT" and mt_opwek in MT_COP:  # systeem-COP naar 70 °C, inclusief WKO en bronpompen
+        return p[MT_COP[mt_opwek]]
+    return float("nan")  # MT met warmteproductie buiten beschouwing
 
 
 def e_pomp(oplossing: str, p, b, N: float, invoer: str = "per woning") -> float:
@@ -85,11 +85,13 @@ class Resultaat:
     pomp_invoer: str = "per woning"
     woningen: float = 0.0           # alle woningen in de buurt
     wp_aandeel_huidig: float = 0.0  # % woningen met nu al een warmtepomp
-    mt_opwek: str = "restwarmte"
+    mt_opwek: str = MT_OPWEK[0]
+    gas_pct: float = 0.0       # % van de piekvraag uit de gasgestuurde piek- en backupvoorziening
+    piek_warmte_kw: float = 0.0  # piekvraag warmte van het net op deze dag
 
 
 def bereken(b, p, dag, prof, oplossing: str | None = None, wp_vorm: str = "vlak",
-            pomp_invoer: str = "per woning", mt_opwek: str = "restwarmte") -> Resultaat:
+            pomp_invoer: str = "per woning", mt_opwek: str = MT_OPWEK[0]) -> Resultaat:
     oplossing = oplossing or b["warmteoplossing"]
     N = float(n_woningen(oplossing, b))
     T = np.full(len(dag), p["t_ref"])  # aanname: constante buitentemperatuur op de referentiedag
@@ -97,7 +99,10 @@ def bereken(b, p, dag, prof, oplossing: str | None = None, wp_vorm: str = "vlak"
     gd_ref = max(0.0, p["t_stookgrens"] - T.mean())
     q_ref = Q * gd_ref / p["gd_jaar"] * (1 - b["isolatie_reductie"] / 100)
     c = cop_dag(oplossing, p, mt_opwek)
-    e_wp = 0.0 if np.isnan(c) else q_ref / c  # warmtepomp, booster of centrale opwek in de buurt
+    # MT: de gasgestuurde piek- en backupvoorziening levert een deel van de piekvraag; de warmtevraag is op deze dag
+    # constant genomen, dus dat deel geldt ook voor de energie. De collectieve warmtepomp levert de rest.
+    gas = p["mt_gas_pct"] / 100 if oplossing == "MT" and mt_opwek in MT_COP else 0.0
+    e_wp = 0.0 if np.isnan(c) else q_ref * (1 - gas) / c  # warmtepomp, booster of collectieve warmtepomp
     e_p = e_pomp(oplossing, p, b, N, pomp_invoer)
     E = e_wp + e_p
     band = {}
@@ -118,4 +123,4 @@ def bereken(b, p, dag, prof, oplossing: str | None = None, wp_vorm: str = "vlak"
     return Resultaat(oplossing, N, b["gas_m3_per_woning"], p["gas_tapwater_koken_m3"], q_jaar_gas(b, p),
                      Q, gd_ref,
                      q_ref, T, vorm_bron, band, c, e_wp, e_p, E, v, P, checks, pomp_invoer,
-                     float(b["woningen"]), float(b["wp_aandeel_huidig"]), mt_opwek)
+                     float(b["woningen"]), float(b["wp_aandeel_huidig"]), mt_opwek, gas * 100, N * q_ref / 24)

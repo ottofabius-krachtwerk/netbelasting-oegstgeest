@@ -115,16 +115,17 @@ buurten = pd.DataFrame([{
     # mock: bruto jaaropwek woningen (kWh): Zonnedakje gemeente-kWp naar aandeel woningen × 875 kWh/kWp (1.213 kWh per woning)
     "zon_kwh_jaar": round(round(1500 * 15_648 / 11_286) * 875),
     "gas_m3_per_woning": 960,  # Klimaatmonitor: gemiddelde Oegstgeest, alle woningen
-    "bestelautos": 120,
-    "vrachtautos": 10,
     "warmteoplossing": "geen",
     "isolatie_reductie": 0,
     "ev_extra": 0,  # aantal extra EV's; invoer
     "pomp_kw_buurt": 75,  # mock: 1.500 woningen × 50 W
-    "wp_aandeel_huidig": 0,
+    "wp_aandeel_huidig": 0,  # % woningen met nu al een warmtepomp; placeholder tot er buurtcijfers zijn
     # mock: resterende dakpotentie zon, alle daken in de buurt (kWh/jaar) = 3 × huidige opwek woningen; Zonnedakje volgt
     "zon_potentie_kwh_jaar": 3 * round(round(1500 * 15_648 / 11_286) * 875),
-    "zon_benutting_pct": 0,  # invoer: % van de resterende potentie dat erbij komt (0 tot 50)  # % woningen met nu al een warmtepomp; placeholder tot er buurtcijfers zijn
+    "zon_benutting_pct": 0,  # invoer: % van de resterende potentie dat erbij komt (0 tot 50)
+    "log_bestel_extra": 0,  # invoer: aantal extra e-bestelbussen dat in de buurt laadt
+    "log_truck_extra": 0,  # invoer: aantal extra e-trucks dat in de buurt laadt
+    "zon_bedrijven_kwh_jaar": 300_000,  # mock: jaaropwek zon op overige daken (Zonnedakje alle daken min woningen)
 }])
 
 # Verhoudingen tussen woningtypen zijn mock, geschaald naar het bekende gemeentegemiddelde netto (1.920 kWh)
@@ -136,12 +137,16 @@ woningtypen = pd.DataFrame([
     for w, n, e in _types
 ])
 
-sectoren = pd.DataFrame([
-    {"buurt_code": "BU_MOCK_A", "sector": "Kantoor", "e_jaar_kwh": 900_000, "profiel": "sector_kantoor", "teken": 1},
-    {"buurt_code": "BU_MOCK_A", "sector": "Winkel", "e_jaar_kwh": 600_000, "profiel": "sector_winkel", "teken": 1},
-    {"buurt_code": "BU_MOCK_A", "sector": "Onderwijs", "e_jaar_kwh": 400_000, "profiel": "sector_onderwijs", "teken": 1},
-    {"buurt_code": "BU_MOCK_A", "sector": "Zorg", "e_jaar_kwh": 700_000, "profiel": "sector_zorg", "teken": 1},
-    {"buurt_code": "BU_MOCK_A", "sector": "Opwek (zon bedrijven)", "e_jaar_kwh": 300_000, "profiel": "instraling", "teken": -1},
+# mock: elektriciteitsverbruik per bedrijfstak voor de gemeente (Klimaatmonitor), samen 36 GWh zoals de gemeente in 2024
+bedrijfstakken = pd.DataFrame([
+    {"bedrijfstak": "Handel", "e_jaar_kwh_gemeente": 8_000_000},
+    {"bedrijfstak": "Zakelijke dienstverlening", "e_jaar_kwh_gemeente": 7_000_000},
+    {"bedrijfstak": "Gezondheids- en welzijnszorg", "e_jaar_kwh_gemeente": 7_000_000},
+    {"bedrijfstak": "Onderwijs", "e_jaar_kwh_gemeente": 4_000_000},
+    {"bedrijfstak": "Openbaar bestuur", "e_jaar_kwh_gemeente": 3_000_000},
+    {"bedrijfstak": "Horeca", "e_jaar_kwh_gemeente": 2_000_000},
+    {"bedrijfstak": "Industrie", "e_jaar_kwh_gemeente": 2_000_000},
+    {"bedrijfstak": "Overig", "e_jaar_kwh_gemeente": 3_000_000},
 ])
 
 UIT.mkdir(exist_ok=True)
@@ -149,5 +154,5 @@ dag.to_csv(UIT / "referentiedag.csv", index=False)
 prof.to_csv(UIT / "profielen.csv", index=False)
 buurten.to_csv(UIT / "buurten.csv", index=False)
 woningtypen.to_csv(UIT / "woningtypen.csv", index=False)
-sectoren.to_csv(UIT / "sectoren.csv", index=False)
+bedrijfstakken.to_csv(UIT / "bedrijfstakken.csv", index=False)
 print("mock geschreven naar", UIT)

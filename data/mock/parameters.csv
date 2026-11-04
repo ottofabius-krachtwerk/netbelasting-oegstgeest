@@ -11,7 +11,10 @@ cop_ae,3,aanname,COP all-electric op de referentiedag,3.0,kWh warmte per kWh str
 t_net_zlt,3,invoer,Temperatuur ZLT-warmtenet,25,°C watertemperatuur van het net,5,45,1,aanname,Projectaanname: bron levert 25 °C
 cop_zlt_a,3,aanname,COP booster: vaste term,2.5,kWh warmte per kWh stroom bij 0 °C nettemperatuur,1,8,0.1,mock,
 cop_zlt_b,3,aanname,COP booster: per graad nettemperatuur,0.08,COP-punten per °C,0,0.3,0.01,mock,
-cop_mt_wp,3,aanname,COP grote warmtepomp MT-warmtenet,2.5,"kWh warmte per kWh stroom, centrale opwek op MT-temperatuur",1,6,0.1,mock,
+cop_mt_teo,3,aanname,Systeem-COP MT met aquathermie TEO,3.0,"kWh warmte per kWh stroom, naar 70 °C, incl. WKO en bronpompen",1,6,0.1,mock,
+cop_mt_tea,3,aanname,Systeem-COP MT met aquathermie TEA,3.3,"kWh warmte per kWh stroom, naar 70 °C, incl. WKO en bronpompen",1,6,0.1,mock,
+cop_mt_geo,3,aanname,Systeem-COP MT met ondiepe geothermie,3.8,"kWh warmte per kWh stroom, naar 70 °C, incl. WKO en bronpompen",1,6,0.1,mock,
+mt_gas_pct,3,invoer,Piek- en backupvoorziening (gas),0,% van de piekvraag warmte van het MT-net,0,100,5,placeholder,
 pomp_w_woning,3,invoer,Pompvermogen warmtenet,50,W per aangesloten woning; constant,0,500,5,placeholder,
 cop_min_ae,3,aanname,Controle: COP all-electric minimaal,2.0,kWh warmte per kWh stroom,1,7,0.1,mock,
 cop_max_ae,3,aanname,Controle: COP all-electric maximaal,5.0,kWh warmte per kWh stroom,1,8,0.1,mock,
@@ -19,11 +22,11 @@ cop_min_zlt,3,aanname,Controle: COP ZLT minimaal,3.0,kWh warmte per kWh stroom,1
 cop_max_zlt,3,aanname,Controle: COP ZLT maximaal,6.0,kWh warmte per kWh stroom,1,10,0.1,mock,
 ev_e_dag,4,data,Laadenergie per auto,8,kWh per auto per winterwerkdag,0,30,0.5,mock,
 slim_aandeel,4,invoer,Aandeel slim laden a,0,"% van de extra EV's in de buurt",0,100,1,mock,
-log_elektrificatie,5,invoer,Elektrificatiegraad logistiek,10,% van alle bestelauto's en trucks dat elektrisch is,0,100,1,placeholder,
-log_groei,5,invoer,Groei aantal logistieke voertuigen,0,% ten opzichte van het huidige aantal in 2025,-50,200,1,placeholder,
-log_e_dag_bestel,5,data,Laadenergie per e-bestelauto,40,kWh per voertuig per dag,0,300,1,placeholder,
-log_e_dag_truck,5,data,Laadenergie per e-truck,150,kWh per voertuig per dag,0,1000,5,placeholder,
-groei_niet_huish,6,invoer,Groei verbruik niet-huishoudelijk,0,% ten opzichte van het huidige jaarverbruik per sector in 2024,-50,200,1,mock,
+log_e_dag_bestel,5,aanname,Laadenergie per e-bestelbus,40,kWh per voertuig per dag,0,300,1,placeholder,
+log_e_dag_truck,5,aanname,Laadenergie per e-truck,150,kWh per voertuig per dag,0,1000,5,placeholder,
+groei_niet_huish,6,invoer,Groei verbruik niet-huishoudelijk gemeente,0,"MWh per jaar, bovenop het huidige verbruik; gelijk verdeeld over de buurten",-20000,100000,100,mock,
+buurten_gemeente,6,data,Buurten in de gemeente,15,"aantal; verbruik per bedrijfstak gelijk verdeeld over de buurten",1,200,1,bron,"CBS wijk- en buurtkaart 2025 (PDOK), Oegstgeest"
+werkdagen_jaar,6,aanname,Werkdagen per jaar,261,"maandag tot en met vrijdag in 2025; verbruik alleen op werkdagen",200,365,1,aanname,"Kalender 2025 (feestdagen niet afgetrokken)"
 zon_opbrengst,8,aanname,Jaaropbrengst zon per kWp (batterijwoning),875,kWh per kWp per jaar,500,1200,5,mock,
 i_jaar,7,data,Instraling per jaar,1000,"kWh per m² per jaar, horizontaal vlak",700,1300,5,mock,
 bat_adoptie,8,invoer,Woningen met thuisbatterij,10,% van alle woningen in de buurt,0,100,1,mock,

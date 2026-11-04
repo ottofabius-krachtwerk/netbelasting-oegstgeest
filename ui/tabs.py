@@ -156,7 +156,8 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
     k = kleur(3)
     q_par = ("buurten", "gas_tapwater_koken_m3", "calorische_waarde", "ketelrendement")
     cop_par = {"geen": ("cop_ae",), "all-electric": ("cop_ae",), "ZLT": ("t_net_zlt", "cop_zlt_a", "cop_zlt_b"),
-               "MT": ("cop_mt_wp",) if r.mt_opwek == "grote warmtepomp" else ()}[r.oplossing]
+               "MT": (k3_warmtepomp.MT_COP[r.mt_opwek], "mt_gas_pct") if r.mt_opwek in k3_warmtepomp.MT_COP else ()
+               }[r.oplossing]
     net = r.oplossing in ("ZLT", "MT")
     _kop(3)
     _formule("Profiel = aantal woningen × stroom per woning op deze dag × verloop over de dag; "
@@ -209,7 +210,7 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
          bron="aanname (constant)")
     extra6 = []
     if not np.isnan(r.cop):
-        naam6 = {"ZLT": "booster", "MT": f"centrale opwek ({r.mt_opwek})"}.get(r.oplossing, "warmtepomp")
+        naam6 = {"ZLT": "booster", "MT": f"collectieve warmtepomp ({r.mt_opwek})"}.get(r.oplossing, "warmtepomp")
         extra6.append((naam6, f"{nl(r.e_warmtepomp, 2)} kWh (COP {nl(r.cop, 2)})"))
     if net:
         extra6.append(("pompen warmtenet", f"{nl(r.e_pomp, 2)} kWh ({nl(p['pomp_w_woning'])} W × 24 uur)"
@@ -217,7 +218,15 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
                        f"{nl(r.e_pomp, 2)} kWh (totaal {nl(r.e_pomp * r.N / 24)} kW voor de buurt, "
                        f"verdeeld over {nl(r.N)} woningen)"))
     extra6.append(("piek", f"{nl(_piek_per_eenheid(r.E, r.v), 2)} kW per woning"))
-    stap(5, "Stroom per woning op deze dag", nl(r.E, 2), "kWh per woning", extra=extra6,
+    reken6 = None
+    if r.oplossing == "MT" and r.mt_opwek in k3_warmtepomp.MT_COP:
+        g, piek = r.gas_pct, r.piek_warmte_kw
+        reken6 = [f"piekvraag warmte: {nl(r.N)} woningen × {nl(r.q_ref, 1)} kWh ÷ 24 uur = {nl(piek)} kW warmte",
+                  f"piek- en backupvoorziening (gas): {nl(piek)} kW × {nl(g)} % = {nl(piek * g / 100)} kW warmte",
+                  f"collectieve warmtepomp: {nl(piek)} kW × {nl(100 - g)} % = {nl(piek * (100 - g) / 100)} kW warmte "
+                  f"÷ COP {nl(r.cop, 1)} = {nl(piek * (100 - g) / 100 / r.cop)} kW stroom",
+                  f"per woning: {nl(r.q_ref, 1)} kWh × {nl(100 - g)} % ÷ COP {nl(r.cop, 1)} = {nl(r.e_warmtepomp, 2)} kWh"]
+    stap(5, "Stroom per woning op deze dag", nl(r.E, 2), "kWh per woning", extra=extra6, reken=reken6,
          tag=tag(*cop_par, "pomp_w_woning", *q_par) if net else tag(*cop_par, *q_par),
          uitleg={"geen": "Warmtevraag op deze dag ÷ één COP voor de hele dag, als all-electric.",
                  "all-electric": "Warmtevraag op deze dag ÷ één COP voor de hele dag.",
@@ -225,22 +234,25 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
                         "De COP hangt lineair af van de nettemperatuur (vaste term + per graad × temperatuur); later "
                         "beter: Carnot × rendement met de aanvoertemperatuur in de woning. Daarbij een vast "
                         "pompvermogen (per woning of als totaal voor de buurt), los van de warmtevraag.",
-                 "MT": {"restwarmte": "Geen warmtepomp per woning en de warmte komt van buiten de buurt (restwarmte): "
-                                      "alleen een vast pompvermogen (per woning of als totaal voor de buurt).",
-                        "grote warmtepomp": "De warmte wordt in de buurt gemaakt met een grote warmtepomp: warmtevraag "
-                                            "÷ COP van de centrale warmtepomp, constant over de dag. Daarbij een vast "
-                                            "pompvermogen. Geen warmteverlies in het net (voorlopig).",
-                        "e-boiler": "De warmte wordt in de buurt gemaakt met een e-boiler: warmtevraag ÷ 1, constant "
-                                    "over de dag. Daarbij een vast pompvermogen. Geen warmteverlies in het net "
-                                    "(voorlopig)."}[r.mt_opwek]}[r.oplossing],
+                 "MT": "Geen warmtepomp per woning. Warmteproductie buiten beschouwing: alleen een vast "
+                       "pompvermogen (per woning of als totaal voor de buurt)." if r.mt_opwek not in k3_warmtepomp.MT_COP
+                       else f"De basislast komt uit {r.mt_opwek}, op 70 °C gebracht met collectieve warmtepompen in "
+                            "combinatie met WKO (één systeem-COP per bron). Een gasgestuurde piek- en backupvoorziening "
+                            "vangt een instelbaar deel van de piekvraag op; de warmtepomp levert de rest. De warmtevraag "
+                            "is op deze koude dag constant genomen (buffering in het net), dus het deel van de piek is "
+                            "ook het deel van de energie. Daarbij een vast pompvermogen. Geen warmteverlies in het net "
+                            "(voorlopig)." + (" Ondiepe geothermie is in de praktijk beperkt beschikbaar."
+                                              if r.mt_opwek == "ondiepe geothermie" else "")}[r.oplossing],
          bron={"geen": "stap 3 · COP: bron open", "all-electric": "stap 3 · COP: bron open",
                "ZLT": "stap 3 · nettemperatuur: projectaanname 25 °C · COP-lijn en pompvermogen: bron open",
-               "MT": "stap 3 · opwek: invoer zijbalk · COP centrale warmtepomp en pompvermogen: bron open"}[r.oplossing])
+               "MT": "stap 3 · warmtebron en aandeel gas: invoer zijbalk · systeem-COP per bron en pompvermogen: "
+                     "bron open"}[r.oplossing])
     stap(6, "Warmteoplossingen naast elkaar", None,
          fig=lijn({o: v.P for o, v in varianten.items()}, KLEUR[:len(varianten)], "kW", fmt=",.0f"),
          extra=[(o, f"{nl(v.P.max())} kW ({nl(_piek_per_eenheid(v.E, v.v), 2)} kW per woning)")
                 for o, v in varianten.items()],
-         tag=tag("t_ref", *q_par, "cop_ae", "cop_zlt_a", "cop_zlt_b", "cop_mt_wp", "pomp_w_woning", "wp_aggregaat"),
+         tag=tag("t_ref", *q_par, "cop_ae", "cop_zlt_a", "cop_zlt_b", "cop_mt_teo", "cop_mt_tea", "cop_mt_geo", "pomp_w_woning",
+                 "wp_aggregaat"),
          uitleg="Dezelfde buurt bij elke warmteoplossing; bij 'geen' komen er geen woningen bij (0 kW). MT met de "
                 "gekozen opwek.",
          bron="stappen 1 tot en met 5, voor elke warmteoplossing")
@@ -347,74 +359,75 @@ def kaart2(r: k2_koken.Resultaat, tag) -> None:
 def kaart5(r: k5_logistiek.Resultaat, p, tag) -> None:
     kl = r.klassen
     kleuren = KLEUR[:len(kl)]
-    par = ("buurten", "log_elektrificatie", "log_groei")
-    _kop(5, extra=badge("placeholder").replace("margin-left:6px", "margin-left:0") + " aantallen, energie en "
-                                                                                       "verloop zijn allemaal open")
+    _kop(5, extra=badge("placeholder").replace("margin-left:6px", "margin-left:0") + " laadenergie en verloop zijn "
+                                                                                       "nog open")
     _formule("Profiel = per voertuigtype: aantal elektrische voertuigen × laadenergie per voertuig × verloop over de dag",
              "P[t] = Σ 4 × N × E × v[t]")
-    stap(1, "Aantal elektrische voertuigen", nl(sum(k.N for k in kl.values()), 1), "voertuigen",
-         extra=[(n, f"{nl(k.N, 1)} = {nl(k.voertuigen)} × {nl(p['log_elektrificatie'])} % × "
-                    f"(1 + {nl(p['log_groei'])} %)") for n, k in kl.items()], tag=tag(*par),
-         uitleg="Bestelauto's en trucks in de buurt × elektrificatiegraad (% elektrisch) × (1 + groei t.o.v. nu).",
-         bron="CBS 85239NED (bestelauto's Zuid-Holland, via bedrijfsvestigingen naar de buurt) · trucks: bron open · elektrificatie en groei: invoer zijbalk")
-    stap(2, "Laadenergie per voertuig per dag", None,
-         extra=[(n, f"{nl(k.E)} kWh") for n, k in kl.items()], tag=tag("log_e_dag_bestel", "log_e_dag_truck"),
-         uitleg="Dagwaarde per voertuigtype.",
-         bron="bron open")
-    stap(3, "Verloop over de dag per type", None,
-         lijn({n: _pct(k.v) for n, k in kl.items()}, kleuren, VERLOOP, fmt=".2f"),
-         extra=[(n, f"{nl(_piek_per_eenheid(k.E, k.v), 2)} kW per voertuig om {TIJD[int(np.argmax(k.v))]}")
-                for n, k in kl.items()], tag=tag("logistiek_bestel", "logistiek_truck"),
-         uitleg="Laadprofiel per voertuigtype (laden op het depot).",
-         bron="ElaadNL laadprofiel logistiek (te bevestigen)")
+    stap(1, "Extra elektrische voertuigen", nl(sum(k.N for k in kl.values())), "voertuigen", tag=tag("buurten"),
+         extra=[(n, nl(k.N)) for n, k in kl.items()],
+         uitleg="Alleen de toename: het aantal extra e-bestelbussen en e-trucks dat in de buurt laadt (zijbalk). Wat "
+                f"nu al bij bedrijven laadt, zit in het verbruik van tab {kn(6)}.",
+         bron="invoer zijbalk")
+    stap(2, "Laadenergie per voertuig per dag", None, tag=tag("log_e_dag_bestel", "log_e_dag_truck"),
+         reken=[f"{n}: {nl(k.N)} voertuigen × {nl(k.E)} kWh = {nl(k.N * k.E)} kWh" for n, k in kl.items()],
+         uitleg="Aangenomen laadenergie per voertuigtype op een werkdag.",
+         bron="aanname (bron open)")
+    stap(3, "Laadprofiel: vlak", None,
+         reken=[f"{n}: {nl(k.E)} kWh ÷ 24 uur = {nl(_piek_per_eenheid(k.E, k.v), 2)} kW per voertuig, elk kwartier"
+                for n, k in kl.items()],
+         uitleg="Voorlopig nemen we voor beide types een vlak laadprofiel aan: de laadenergie is gelijk verdeeld over de "
+                "dag.",
+         bron="aanname (vlak) · later: ElaadNL laadprofiel logistiek (te bevestigen)")
     p_en_checks(4, r.P, kleur(5), r.checks, naam="Profiel per voertuigtype",
                 fig=gestapeld({n: k.P for n, k in kl.items()}, kleuren, totaal=r.P))
     _vast(5)
 
 
-def kaart6(r: k6_mkb.Resultaat, opties: dict, tag) -> None:
+def kaart6(r: k6_mkb.Resultaat, p, tag) -> None:
     df = r.sectoren
-    kleuren = KLEUR[:len(df)]
+    verbruik = df[df["teken"] > 0]
+    zon = df[df["teken"] < 0].iloc[0]
     _kop(6)
-    _formule("Profiel = per sector: verbruik op deze dag × verloop over de dag; opwek van bedrijven negatief",
-             "P[t] = Σ 4 × E_s × v_s[t], E_s = E_jaar,s × d_s")
-    stap(1, "Jaarverbruik per sector", nl((df["teken"] * df["e_jaar"]).sum() / 1e3), "MWh/jaar netto",
-         staven(df["sector"], df["teken"] * df["e_jaar"] / 1e3, kleuren=kleuren, eenheid="MWh/jaar"),
-         tag=tag("sectoren", "groei_niet_huish"),
-         uitleg="Gemeentetotaal per sector verdeeld naar de buurt, × (1 + groei t.o.v. het huidige jaarverbruik). "
-                "Opwek van bedrijven negatief.",
-         bron="Klimaatmonitor (verbruik per sector, gemeente) · BAG gebruiksoppervlak (verdeling naar buurt) · groei: "
-              "invoer zijbalk · opwek: Zonnedakje (alle daken min woningen)",
+    _formule("Profiel = per bedrijfstak: jaarverbruik in de buurt ÷ werkdagen, vlak over de dag; opwek van bedrijven "
+             "negatief", "P[t] = Σ 4 × E_s × v_s[t], E_s = E_gemeente,s ÷ buurten ÷ werkdagen")
+    stap(1, "Jaarverbruik per bedrijfstak in de buurt", nl(verbruik["e_jaar"].sum() / 1e3), "MWh/jaar",
+         tag=tag("bedrijfstakken", "buurten_gemeente", "groei_niet_huish"),
+         reken=[f"{r.sector}: {nl(r.e_gemeente / 1e3)} MWh ÷ {nl(p['buurten_gemeente'])} buurten = {nl(r.e_jaar / 1e3)} MWh"
+                for r in verbruik.itertuples()],
+         uitleg="Verbruik per bedrijfstak voor de hele gemeente, voorlopig gelijk verdeeld over de buurten (elke buurt "
+                "evenveel). Groei is een invoer in MWh per jaar voor de gemeente en wordt op dezelfde manier verdeeld.",
+         bron="Klimaatmonitor (elektriciteitsverbruik per bedrijfstak, gemeente) · CBS wijk- en buurtkaart 2025 "
+              "(15 buurten) · groei: invoer zijbalk",
+         noot="de gelijke verdeling over de buurten later verfijnen, bijvoorbeeld met het BAG-gebruiksoppervlak per "
+              "gebruiksfunctie of grote verbruikers op hun eigen adres.")
+    stap(2, "Verbruik op deze dag", nl(verbruik["E"].sum()), "kWh",
+         tag=tag("bedrijfstakken", "werkdagen_jaar"),
+         reken=[f"{nl(verbruik['e_jaar'].sum() / 1e3)} MWh ÷ {nl(p['werkdagen_jaar'])} werkdagen = "
+                f"{nl(verbruik['E'].sum())} kWh",
+                f"vlak over de dag: {nl(verbruik['E'].sum())} kWh ÷ 24 uur = {nl(verbruik['E'].sum() / 24)} kW"],
+         uitleg="Elke werkdag hetzelfde verbruik en in het weekend niets; deze dinsdag krijgt dus een werkdagdeel. Over "
+                "de dag nemen we een vlak verbruik aan.",
+         bron="aanname (vlak, alleen werkdagen) · kalender 2025")
+    stap(3, "Opwek zon van bedrijven op deze dag", nl(zon["E"]), "kWh", tag=tag("buurten", "I", "i_jaar"),
+         fig=lijn({"opwek": r.P[zon["sector"]]}, [kleur(7)], "kW", fmt=",.0f", vlak=True),
+         reken=[f"{nl(zon['e_jaar'] / 1e3)} MWh × {nl(zon['d'] * 100, 3)} % = {nl(zon['E'])} kWh"],
+         uitleg=f"Jaaropwek op de overige daken × deel van de jaaropwek op deze dag, met het verloop van de instraling, "
+                f"net als in tab {kn(1)} en {kn(7)}.",
+         bron="Zonnedakje (alle daken min woningen) · KNMI station 215 (instraling)",
          noot=f"opwek van bedrijven = Zonnedakje voor alle overige panden: alle daken min de woningen uit tab {kn(1)} "
               "(nu nog mock), zodat alle zonne-energie in de buurt één keer meetelt. Controle toevoegen: opwek woningen "
               "+ overige panden = totaal Zonnedakje voor de buurt.")
-    stap(2, "Verbruik op deze dag per sector", nl(float(df["E"].abs().sum())), "kWh (verbruik en opwek opgeteld)",
-         staven(df["sector"], df["d"] * 365, kleuren=kleuren, eenheid="× een gemiddelde dag", fmt=".2f"),
-         tag=tag(*r.v.keys(), "i_jaar"),
-         uitleg="Het sectorprofiel zegt welk deel van het jaar op deze dag valt; de grafiek toont dat ten opzichte "
-                f"van een gemiddelde dag. Opwek: uit de instraling, net als tab {kn(7)}.",
-         bron=f"sectorprofielen ({r.profielbron}) · opwek: KNMI station 215 (instraling)")
-    vorm_tag = tag("nedu_e3") if r.profielbron == "NEDU E3" else tag(*r.v.keys())
-    stap(3, f"Verloop over de dag per sector ({r.profielbron})", None,
-         fig=lijn({s: _pct(v) for s, v in r.v.items()}, kleuren, VERLOOP, fmt=".2f"), tag=vorm_tag,
-         uitleg={"Liander": "Liander open data: elke sector een eigen verloop. Opwek is negatief.",
-                 "NEDU E3": "NEDU E3: één verloop voor alle verbruikssectoren (E3A t/m E3D zijn gelijk, bevroren "
-                            "meetdata 2011 tot 2013). Opwek houdt het zonverloop."}[r.profielbron],
-         bron={"Liander": "Liander open data (sectorprofielen)", "NEDU E3": "NEDU standaardprofielen elektriciteit 2025 (E3, 18-02-2025)"}[r.profielbron])
-    stap(4, "Twee opties voor de sectorprofielen", None,
-         fig=lijn({n: v.P_tot for n, v in opties.items()}, [KLEUR[0], KLEUR[1]], "kW", fmt=",.0f"),
-         extra=[(n, f"max {nl(v.P_tot.max())} kW om {TIJD[int(np.argmax(v.P_tot))]}") for n, v in opties.items()],
-         tag=tag(*r.v.keys(), "nedu_e3"),
-         uitleg="Zelfde jaarverbruik per sector, ander verloop. Keuze in de zijbalk.",
-         bron="Liander open data en NEDU standaardprofielen elektriciteit 2025 (E3)")
-    p_en_checks(5, r.P_tot, kleur(6), r.checks, naam="Profiel per sector", fig=gestapeld(r.P, kleuren, totaal=r.P_tot))
+    P_verbruik = np.sum([r.P[s] for s in verbruik["sector"]], axis=0)
+    fig = balans(P_verbruik, r.P[zon["sector"]], r.P_tot, [MUTED, kleur(7), kleur(6)],
+                 namen=("verbruik (stap 2)", "opwek (stap 3)", "netto"))
+    p_en_checks(4, r.P_tot, kleur(6), r.checks, naam="Netto profiel: verbruik − opwek", fig=fig)
     _vast(6)
 
 
 def stapeling(r: stapeling_model.Resultaat, kleuren: list[str]) -> None:
     i = r.i_piek
     _kop(9)
-    _formule(f"Profiel van de buurt = de profielen van alle tabs opgeteld (zonder tab {kn(5)})",
+    _formule("Profiel van de buurt = de profielen van alle tabs opgeteld",
              "P_buurt[t] = Σ P[t]")
     stap(1, "Piek van de buurt", nl(r.P_tot[i]), "kW", extra=[("om", TIJD[i]), ("laagste", f"{nl(r.P_tot.min())} kW")],
          uitleg="Hoogste kwartier van het opgetelde profiel.",
