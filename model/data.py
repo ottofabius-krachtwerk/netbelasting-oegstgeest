@@ -9,9 +9,13 @@ DATA = Path(__file__).resolve().parent.parent / "data"
 # woningtype -> sleutel; per type een kolom woningen_<sleutel> in buurten.csv en een parameter e_netto_<sleutel>
 WONINGTYPEN = {"Vrijstaand": "vrijstaand", "2-onder-1-kap": "twee_onder_een_kap", "Hoekwoning": "hoekwoning",
                "Tussenwoning": "tussenwoning", "Appartement": "appartement"}
+# EV-prognose per buurt: totaal aantal elektrische personenauto's per scenario en jaar (kolommen ev_<scenario>_<jaar>)
+EV_SCENARIOS = ["laag", "middel", "hoog"]
+EV_JAREN = [2025, 2035, 2050]
 SCHEMA = {
     "buurten.csv": ["buurt_code", "buurt_naam", *[f"woningen_{k}" for k in WONINGTYPEN.values()], "huishoudens",
-                    "zon_kwh_jaar", "gas_m3_per_woning", "zon_potentie_kwh_jaar", "zon_bedrijven_kwh_jaar"],
+                    "zon_kwh_jaar", "gas_m3_per_woning", "zon_potentie_kwh_jaar", "zon_bedrijven_kwh_jaar",
+                    *[f"ev_{s}_{j}" for s in EV_SCENARIOS for j in EV_JAREN]],
     "bedrijfstakken.csv": ["bedrijfstak", "e_jaar_kwh_gemeente"],
     "instraling_dayahead.csv": ["datum", "kwartier", "tijd", "I", "prijs"],
     "profielen.csv": ["kwartier", "tijd", "nedu_e1a", "wp_aggregaat", "koken",

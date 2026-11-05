@@ -3,7 +3,7 @@ import pandas as pd
 import streamlit as st
 
 from model import k1_basis, k2_koken, k3_warmtepomp, k4_laden_auto, k5_logistiek, k6_mkb, k7_zon, k8_batterij, stapeling
-from model.data import DATA, WARMTEOPLOSSINGEN, DataFout, laad
+from model.data import DATA, EV_SCENARIOS, WARMTEOPLOSSINGEN, DataFout, laad
 from ui import invoer, tabs
 from ui.kaarten import VOLGORDE, kaartnaam, kleur
 
@@ -85,6 +85,11 @@ with st.sidebar:
                                              format_func=lambda v: {"vlak": "vlak (ondergrens)",
                                                                     "gemeten": "gemeten aggregaat"}[v],
                                              key=f"{bron}:wpvorm")
+        elif kaart == 4:  # prognose: totaal aantal EV's in de buurt, één scenario voor alle buurten
+            keuzes["ev_scenario"] = st.radio("Prognose elektrische auto's", EV_SCENARIOS, horizontal=True,
+                                             index=EV_SCENARIOS.index(invoer.EV_SCENARIO), key=f"{bron}:ev_scenario")
+            b["ev_aantal"] = float(b[f"ev_{keuzes['ev_scenario']}_{invoer.JAAR}"])
+            b["ev_huidig"] = float(b[f"ev_{keuzes['ev_scenario']}_2025"])
         elif kaart == 8:
             keuzes["bat_modus"] = st.radio("Batterijmodus", k8_batterij.MODI, key=f"{bron}:batmodus")
             keuzes["bat_kwh"] = st.radio("Capaciteit per thuisbatterij", k8_batterij.GROOTTES, index=1, horizontal=True,
@@ -101,7 +106,7 @@ with st.sidebar:
         return True
 
     p = {naam: float(r["waarde"]) for naam, r in data.parameters.iterrows()}  # data en aannames, onderaan de tab
-    met_keuzes = {v.kaart for v in invoer.PER_BUURT.values()} | {3, 8}
+    met_keuzes = {v.kaart for v in invoer.PER_BUURT.values()} | {3, 4, 8}
     for kaart in VOLGORDE:
         velden = {n: v for n, v in invoer.ALGEMEEN.items() if v.kaart == kaart}
         if not velden and kaart not in met_keuzes:
@@ -142,7 +147,7 @@ if t[3].open:
         tabs.kaart3(r3, varianten, p, _status, b["isolatie_reductie"])
 if t[4].open:
     with t[4]:
-        tabs.kaart4(r4, p, _status)
+        tabs.kaart4(r4, p, _status, keuzes["ev_scenario"], invoer.JAAR)
 if t[7].open:
     with t[7]:
         tabs.kaart7(r7, p, _status)

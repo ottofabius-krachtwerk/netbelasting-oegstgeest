@@ -1,10 +1,10 @@
-"""Kaart 4: Laden personenauto's, alleen de extra EV's. Vier laadprofielen: thuis of publiek, standaard of slim.
+"""Kaart 4: Laden personenauto's, alle EV's in de buurt (prognose). Vier laadprofielen: thuis/publiek, standaard/slim.
 
 Energie = N × E (alleen laden in de buurt), verdeeld naar publiek (q) en thuis (1 − q), en per locatie naar slim
 (a_thuis, a_publiek) en standaard. Het verloop mengt de vier ElaadNL-vormen met die gewichten.
 95 %-grens: per onderdeel n laadpunten = energie ÷ ElaadNL-energie per laadpunt, spreiding √n × σ per laadpunt;
 de onderdelen zijn onafhankelijk, dus σ_totaal = √Σ σ². Grens = verwacht + 1,645 × σ_totaal (eenzijdig, per kwartier).
-Het laden van de huidige EV's zit in het netto verbruik van kaart 1 (woningen basis).
+Het thuisladen van de huidige EV's zit in het netto verbruik; kaart 1 (woningen basis) haalt het daar af.
 """
 from dataclasses import dataclass
 
@@ -37,7 +37,7 @@ class Resultaat:
 
 
 def bereken(b, p, prof) -> Resultaat:
-    N = float(b["ev_extra"])  # toename per buurt, aantal extra EV's (invoer)
+    N = float(b["ev_aantal"])  # totaal aantal EV's in de buurt: prognose van het gekozen scenario
     E = p["ev_e_dag"]
     q, at, ap = p["publiek_aandeel"] / 100, p["slim_thuis"] / 100, p["slim_publiek"] / 100
     gewichten = {"thuis standaard": (1 - q) * (1 - at), "thuis slim": (1 - q) * at,

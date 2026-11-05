@@ -32,7 +32,7 @@ def meta(kaart: int) -> tuple[str, str]:
         5: ("extra e-bestelbussen en e-trucks per buurt (aantal; alleen de toename) · laadenergie per voertuigtype · "
             "laadprofiel per voertuigtype",
             "invoer zijbalk · laadprofiel: vlak (aanname) · laadenergie: aanname, bron open"),
-        4: ("extra EV's per buurt (aantal; alleen de toename) · aandeel publiek laden · aandeel slim laden thuis en "
+        4: ("prognose aantal EV's per buurt (scenario laag, middel of hoog; totaal) · aandeel publiek laden · aandeel slim laden thuis en "
             "publiek · laadenergie per auto · laadverloop en spreiding per laadpunt, thuis en publiek, standaard en slim",
             "invoer zijbalk · ElaadNL gegenereerde laadpuntprofielen 2025 · slim thuis: aanname"),
         7: ("resterende dakpotentie zon per buurt (alle daken) · benutting in % (alleen de toename) · instraling op deze "

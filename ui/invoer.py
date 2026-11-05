@@ -38,11 +38,12 @@ PER_BUURT = {
     "wp_aandeel_huidig": Veld(3, "Woningen met nu al een warmtepomp",
                               "% van alle woningen; die gaan niet nog eens over", 0, 0, 100, 1),
     "isolatie_reductie": Veld(3, "Isolatie", "% minder warmtevraag per woning dan nu", 0, 0, 80, 1),
-    "ev_extra": Veld(4, "Extra EV's", "aantal, bovenop de huidige EV's in tab 2", 0, 0, 100000, 10),
     "log_bestel_extra": Veld(5, "Extra e-bestelbussen", "aantal dat in de buurt laadt", 0, 0, 10000, 1),
     "log_truck_extra": Veld(5, "Extra e-trucks", "aantal dat in de buurt laadt", 0, 0, 10000, 1),
     "zon_benutting_pct": Veld(7, "Extra zon", "% van de resterende dakpotentie, alle daken in de buurt", 0, 0, 50, 1),
 }
 WARMTEOPLOSSING = "geen"  # standaard per buurt
+EV_SCENARIO = "middel"  # standaard prognose voor het aantal EV's (laag, middel of hoog), voor alle buurten
+JAAR = 2025  # voorlopig vast; een keuze voor 2035 en 2050 volgt
 
-NAMEN = set(ALGEMEEN) | set(PER_BUURT) | {"warmteoplossing", "pomp_kw_buurt"}  # geen data: telt niet mee in de status
+NAMEN = set(ALGEMEEN) | set(PER_BUURT) | {"warmteoplossing", "pomp_kw_buurt", "ev_scenario"}  # geen data: telt niet mee in de status

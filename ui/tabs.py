@@ -85,8 +85,9 @@ def kaart1(r: k1_basis.Resultaat, p, dag, tag) -> None:
                 for w, n, e in zip(t["woningtype"], t["woningen"], t["e_netto_kwh_per_woning"])]
                + [f"totaal: {nl(r.e_netto / 1e3)} MWh"],
          uitleg="Per woningtype: aantal woningen × netto verbruik per woning (levering min teruglevering). Het netto "
-                "verbruik bevat ook de huidige warmtepompen en het thuisladen van de huidige EV's; de tabs "
-                f"{kn(4)} en {kn(3)} rekenen alleen de toename.",
+                "verbruik bevat ook de huidige warmtepompen en het thuisladen van de huidige EV's. Tab "
+                f"{kn(3)} rekent alleen de toename; tab {kn(4)} rekent alle EV's, daarom gaat hun thuisladen er in "
+                "stap 4 af.",
          bron="Klimaatmonitor (netto levering per woningtype, PC6, 2025) × CBS (woningen per woningtype)",
          noot="nagaan of de Klimaatmonitor het netto verbruik per woning op 0 afkapt, zoals CBS 81528NED. Dan wordt "
               "het bruto verbruik in stap 4 te hoog bij woningen die meer opwekken dan ze verbruiken; te controleren "
@@ -97,16 +98,22 @@ def kaart1(r: k1_basis.Resultaat, p, dag, tag) -> None:
          bron="Zonnedakje (jaaropwek per pand, alleen woningen)",
          noot="Zonnedakje geeft alle daken; hier tellen alleen woningen (BAG-gebruiksdoel woonfunctie, staat al in "
               "Zonnedakje). Gemengde panden: verdelen naar gebruiksoppervlakte per functie of toewijzen aan de "
-              f"grootste functie (keuze open). De overige daken gaan naar tab {kn(6)}. Zelfde jaar als het netto "
+              f"grootste functie (keuze open). Waar de opwek op de overige daken meetelt, is ook nog open "
+              f"(bijvoorbeeld tab {kn(6)}). Zelfde jaar als het netto "
               "verbruik (2025) en de opwek van geplaatste panelen, niet het dakpotentieel.")
-    stap(4, "Bruto jaarverbruik", nl(r.e_jaar_buurt / 1e3), "MWh/jaar",
-         tag=tag("buurten"),
-         reken=[f"{nl(r.e_netto / 1e3)} MWh netto + {nl(r.e_zon_bruto / 1e3)} MWh zon = {nl(r.e_jaar_buurt / 1e3)} MWh",
+    thuis = 100 - p["publiek_aandeel"]
+    stap(4, "Huishoudelijk jaarverbruik", nl(r.e_jaar_buurt / 1e3), "MWh/jaar",
+         tag=tag("buurten", "ev_e_dag"),
+         reken=[f"thuisladen huidige EV's: {nl(r.ev_huidig)} EV's × {nl(p['ev_e_dag'], 1)} kWh × 365 × {nl(thuis)} % "
+                f"thuis = {nl(r.e_ev_thuis / 1e3)} MWh",
+                f"{nl(r.e_netto / 1e3)} MWh netto + {nl(r.e_zon_bruto / 1e3)} MWh zon − {nl(r.e_ev_thuis / 1e3)} MWh "
+                f"thuisladen = {nl(r.e_jaar_buurt / 1e3)} MWh",
                 f"per woning: {nl(r.e_jaar_buurt / 1e3)} MWh ÷ {nl(r.N)} woningen = {nl(r.e_jaar)} kWh"],
          uitleg="In het netto verbruik is de zon over het hele jaar al afgetrokken. De volledige bruto opwek komt er "
                 "weer bij; zo ontstaat het werkelijke verbruik. De opwek gaat er in stap 8 weer af, met het verloop "
-                "van deze winterdag.",
-         bron="stap 2 en 3")
+                f"van deze winterdag. Het thuisladen van de huidige EV's (prognose 2025) gaat eraf, omdat tab {kn(4)} "
+                "alle EV's rekent met hun eigen laadprofiel; aandeel thuis = 100 % min het aandeel publiek laden.",
+         bron=f"stap 2 en 3 · huidige EV's: prognose 2025 in de buurttabel · laadenergie en aandeel publiek: tab {kn(4)}")
     # B · verbruik op deze dag
     stap(5, "Deel van het jaarverbruik op deze dag", nl(r.d * 100, 3), "%", tag=tag("nedu_e1a"),
          reken=[f"d = {nl(r.d * 100, 3)} % (som van NEDU E1A_AZI_A over 18-02-2025)",
@@ -266,16 +273,18 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
     _vast(3)
 
 
-def kaart4(r: k4_laden_auto.Resultaat, p, tag) -> None:
+def kaart4(r: k4_laden_auto.Resultaat, p, tag, scenario: str, jaar: int) -> None:
     k = kleur(4)
     _kop(4)
     _formule("Profiel = aantal elektrische auto's × laadenergie per auto op deze dag × laadverloop over de dag; het "
              "verloop mengt vier profielen: thuis of publiek, standaard of slim",
              "P[t] = 4 × N × E × v[t], v = Σ gewicht × v_profiel; P95[t] = P[t] + 1,645 × σ[t]")
-    stap(1, "Extra elektrische auto's", nl(r.N), "auto's", tag=tag("buurten"),
-         uitleg="Alleen de toename: het aantal extra EV's in de buurt (zijbalk). Het laden van de huidige EV's zit al "
-                f"in tab {kn(1)}.",
-         bron="invoer zijbalk")
+    stap(1, "Elektrische auto's in de buurt", nl(r.N), "auto's", tag=tag("buurten"),
+         reken=[f"prognose {scenario}, {jaar}: {nl(r.N)} EV's"],
+         uitleg="Het totale aantal elektrische personenauto's in de buurt volgens de gekozen prognose (zijbalk: laag, "
+                f"middel of hoog). Het thuisladen van de huidige EV's haalt tab {kn(1)} van het netto verbruik af, "
+                "zodat het niet dubbel telt. Voorlopig rekenen we met 2025; een keuze voor 2035 en 2050 volgt.",
+         bron="prognose per buurt in de buurttabel (scenario's laag, middel, hoog; nu mock)")
     e_tot = r.N * r.E
     stap(2, "Laadenergie op deze dag", nl(e_tot), "kWh", tag=tag("ev_e_dag"),
          reken=[f"{nl(r.N)} auto's × {nl(r.E, 1)} kWh = {nl(e_tot)} kWh",

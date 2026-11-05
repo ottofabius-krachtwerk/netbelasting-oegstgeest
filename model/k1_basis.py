@@ -33,6 +33,8 @@ class Resultaat:
     P: np.ndarray           # netto: verbruik + opwek
     e_dag: float            # netto dagenergie, kWh
     checks: list[Check]
+    e_ev_thuis: float = 0.0  # thuisladen huidige EV's per jaar, kWh
+    ev_huidig: float = 0.0   # huidige EV's in de buurt (prognose 2025)
 
 
 def bereken(b, p, dag, prof) -> Resultaat:
@@ -42,7 +44,9 @@ def bereken(b, p, dag, prof) -> Resultaat:
     N = float(types["woningen"].sum())
     e_netto = float(types["e_netto_kwh"].sum())
     e_zon = float(b["zon_kwh_jaar"])  # bruto jaaropwek huidige panelen bij woningen (Zonnedakje)
-    e_jaar_buurt = e_netto + e_zon
+    # thuisladen van de huidige EV's zit in het netto verbruik; kaart 4 rekent alle EV's, dus hier eraf
+    e_ev_thuis = float(b["ev_huidig"]) * p["ev_e_dag"] * 365 * (1 - p["publiek_aandeel"] / 100)
+    e_jaar_buurt = e_netto + e_zon - e_ev_thuis
     e_jaar = e_jaar_buurt / N
     f = prof["nedu_e1a"].to_numpy(float)
     d = dagfractie(f)
@@ -58,9 +62,8 @@ def bereken(b, p, dag, prof) -> Resultaat:
               f"{nl(-e_zon * f_zon)} kWh", abs(P_zon.sum() / 4 + e_zon * f_zon) <= TOL * max(1, e_zon * f_zon)),
         Check("Netto dagtotaal = verbruik − opwek", f"{nl(P.sum() / 4)} kWh", f"{nl(e_dag)} kWh",
               abs(P.sum() / 4 - e_dag) <= TOL * max(1, abs(e_dag))),
-        Check("Bruto jaarverbruik ≥ netto verbruik (E_jaar ≥ E_netto)", f"{nl(e_jaar_buurt)} kWh", f"≥ {nl(e_netto)} kWh",
-              e_jaar_buurt >= e_netto - TOL),
-        Check("Bruto jaarverbruik positief (E_jaar > 0)", f"{nl(e_jaar_buurt)} kWh", "> 0", e_jaar_buurt > 0),
+        Check("Huishoudelijk jaarverbruik positief (E_jaar > 0)", f"{nl(e_jaar_buurt)} kWh", "> 0", e_jaar_buurt > 0),
     ]
     return Resultaat(N, types, e_netto, e_zon, e_jaar_buurt, e_jaar, d, f, E, v, P_verbruik, f_zon,
-                     v_zon, P_zon, P, e_dag, checks)
+                     v_zon, P_zon, P, e_dag, checks, e_ev_thuis=e_ev_thuis,
+                     ev_huidig=float(b["ev_huidig"]))
