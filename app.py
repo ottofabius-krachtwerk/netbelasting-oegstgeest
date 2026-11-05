@@ -5,7 +5,7 @@ import streamlit as st
 from model import k1_basis, k2_koken, k3_warmtepomp, k4_laden_auto, k5_logistiek, k6_mkb, k7_zon, k8_batterij, stapeling
 from model.data import DATA, EV_SCENARIOS, WARMTEOPLOSSINGEN, DataFout, laad
 from ui import invoer, tabs
-from ui.kaarten import VOLGORDE, kaartnaam, kleur
+from ui.kaarten import ROOD, VOLGORDE, kaartnaam, kleur
 
 st.set_page_config(page_title="Netbelasting Oegstgeest", layout="wide")
 st.markdown("<style>.block-container{padding-top:2.2rem;padding-bottom:1rem}"
@@ -13,7 +13,7 @@ st.markdown("<style>.block-container{padding-top:2.2rem;padding-bottom:1rem}"
 
 
 
-TABLABEL = {k: kaartnaam(k) for k in VOLGORDE} | {9: f"{len(VOLGORDE) + 1} Stapeling"}
+TABLABEL = {k: f":red[{kaartnaam(k)}]" if k in ROOD else kaartnaam(k) for k in VOLGORDE} | {9: f"{len(VOLGORDE) + 1} Stapeling"}
 # De gekozen tab (uit de vorige run) bepaalt welke groep in de zijbalk open staat
 ACTIEF = {v: k for k, v in TABLABEL.items()}.get(st.session_state.get("tabkeuze"), VOLGORDE[0])
 

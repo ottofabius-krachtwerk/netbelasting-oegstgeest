@@ -4,6 +4,8 @@ from ui.charts import KLEUR
 KAARTEN = {1: "Woningen basis", 2: "Elektrisch koken", 3: "Warmtepomp", 4: "Laden personenauto's",
            5: "Laden logistiek", 6: "MKB en grootverbruik", 7: "Zonne-opwek", 8: "Thuisbatterij"}
 VOLGORDE = [2, 1, 4, 8, 3, 7, 5, 6]  # volgorde van de tabs (bordnummers); de UI nummert van links naar rechts
+# Tabs met een rode titel (bordnummers): woningen basis, warmtepomp, laden personenauto's, laden logistiek, MKB, zon
+ROOD = {1, 3, 4, 5, 6, 7}
 NR = {kaart: i + 1 for i, kaart in enumerate(VOLGORDE)}
 NR_STAPELING = len(VOLGORDE) + 1
 
