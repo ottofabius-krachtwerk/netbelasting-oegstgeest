@@ -11,10 +11,15 @@ from model.common import Check, checks_standaard, nl, p_kw, vorm
 
 TECH = {"geen": "ae", "all-electric": "ae", "ZLT": "zlt"}
 POMPINVOER = ["per woning", "totaal buurt"]
-# MT (70 °C): warmteproductie buiten beschouwing, of een bron opgewaardeerd met collectieve warmtepompen en WKO
-MT_OPWEK = ["buiten beschouwing", "aquathermie TEO", "aquathermie TEA", "ondiepe geothermie"]
+# MT (70 °C): warmteproductie buiten de buurt (alleen pompen), of een collectieve warmtepomp naar 70 °C
+MT_OPWEK = ["buiten beschouwing", "collectieve warmtepomp"]
 MT_STANDAARD = MT_OPWEK[1]  # standaard met warmteproductie, zodat de warmtevraag meetelt in de vergelijking met andere oplossingen
-MT_COP = {"aquathermie TEO": "cop_mt_teo", "aquathermie TEA": "cop_mt_tea", "ondiepe geothermie": "cop_mt_geo"}
+MT_COP = {"collectieve warmtepomp": "cop_mt_wp"}
+# ZLT: laagwaardige bron (aquathermie, ondiepe geothermie) met een centrale bronwarmtepomp naar de nettemperatuur; de booster
+# per woning tilt het water daarna op naar de aanvoertemperatuur. "buiten beschouwing": de bronstroom telt niet mee.
+ZLT_BRON = ["buiten beschouwing", "aquathermie TEO", "aquathermie TEA", "ondiepe geothermie"]
+ZLT_STANDAARD = ZLT_BRON[1]  # standaard met bronstroom, zodat de vergelijking met andere oplossingen eerlijk is
+ZLT_T_BRON = {"aquathermie TEO": "t_bron_teo", "aquathermie TEA": "t_bron_tea", "ondiepe geothermie": "t_bron_geo"}
 VORMEN = ["vlak", "gemeten"]  # bandbreedte voor all-electric: maximale buffering, of gemeten aggregaatprofiel
 
 
@@ -46,9 +51,23 @@ def cop_dag(oplossing: str, p, mt_opwek: str = MT_STANDAARD) -> float:
         return p["cop_ae"]
     if oplossing == "ZLT":
         return p["cop_zlt_a"] + p["cop_zlt_b"] * p["t_net_zlt"]
-    if oplossing == "MT" and mt_opwek in MT_COP:  # systeem-COP naar 70 °C, inclusief WKO en bronpompen
+    if oplossing == "MT" and mt_opwek in MT_COP:  # systeem-COP van de collectieve warmtepomp naar 70 °C
         return p[MT_COP[mt_opwek]]
-    return float("nan")  # MT met warmteproductie buiten beschouwing
+    return float("nan")  # MT met warmteproductie buiten de buurt
+
+
+def cop_bron(zlt_bron: str, p) -> float:
+    """Systeem-COP van de centrale bronwarmtepomp van een ZLT-net: van de winterbrontemperatuur naar de nettemperatuur.
+
+    COP = rendement × Carnot, met Carnot = T_net[K] ÷ (T_net − T_bron); het rendement is het systeemrendement inclusief
+    bronpompen. Begrensd op een maximum (pompenergie, warmtewisselaar). Ligt de bron op of boven de nettemperatuur, dan is
+    er geen warmtepomp nodig en geldt het maximum. Nan: de bron ligt buiten de buurt en telt niet mee.
+    """
+    if zlt_bron not in ZLT_T_BRON:
+        return float("nan")
+    t_net, t_bron = p["t_net_zlt"], p[ZLT_T_BRON[zlt_bron]]
+    carnot = (t_net + 273.15) / (t_net - t_bron) if t_net > t_bron else float("inf")
+    return min(p["cop_bron_max"], p["eta_bron"] * carnot)
 
 
 def e_pomp(oplossing: str, p, b, N: float, invoer: str = "per woning") -> float:
@@ -89,10 +108,13 @@ class Resultaat:
     mt_opwek: str = MT_STANDAARD
     gas_pct: float = 0.0       # % van de piekvraag uit de gasgestuurde piek- en backupvoorziening
     piek_warmte_kw: float = 0.0  # piekvraag warmte van het net op deze dag
+    zlt_bron: str = ZLT_STANDAARD
+    cop_bron: float = float("nan")  # systeem-COP van de centrale bronwarmtepomp (ZLT); nan = buiten beschouwing
+    e_bron: float = 0.0        # kWh stroom per woning per dag voor de centrale bronwarmtepomp (ZLT)
 
 
 def bereken(b, p, dag, prof, oplossing: str | None = None, wp_vorm: str = "vlak",
-            pomp_invoer: str = "per woning", mt_opwek: str = MT_STANDAARD) -> Resultaat:
+            pomp_invoer: str = "per woning", mt_opwek: str = MT_STANDAARD, zlt_bron: str = ZLT_STANDAARD) -> Resultaat:
     oplossing = oplossing or b["warmteoplossing"]
     N = float(n_woningen(oplossing, b))
     T = np.full(len(dag), p["t_ref"])  # aanname: constante buitentemperatuur op de referentiedag
@@ -105,7 +127,10 @@ def bereken(b, p, dag, prof, oplossing: str | None = None, wp_vorm: str = "vlak"
     gas = p["mt_gas_pct"] / 100 if oplossing == "MT" and mt_opwek in MT_COP else 0.0
     e_wp = 0.0 if np.isnan(c) else q_ref * (1 - gas) / c  # warmtepomp, booster of collectieve warmtepomp
     e_p = e_pomp(oplossing, p, b, N, pomp_invoer)
-    E = e_wp + e_p
+    # ZLT: de booster haalt (1 − 1/COP) van de warmte uit het net; de centrale bronwarmtepomp levert die warmte aan het net
+    c_bron = cop_bron(zlt_bron, p) if oplossing == "ZLT" else float("nan")
+    e_bron = 0.0 if np.isnan(c_bron) or np.isnan(c) else q_ref * (1 - 1 / c) / c_bron
+    E = e_wp + e_bron + e_p
     band = {}
     if oplossing in ("geen", "all-electric"):
         vs = {"vlak": np.full(len(T), 1 / len(T)), "gemeten": vorm(prof["wp_aggregaat"])}
@@ -121,7 +146,12 @@ def bereken(b, p, dag, prof, oplossing: str | None = None, wp_vorm: str = "vlak"
         t = TECH[oplossing]
         lo, hi = p[f"cop_min_{t}"], p[f"cop_max_{t}"]
         checks.append(Check(f"COP {oplossing} binnen controlebereik", nl(c, 2), f"{nl(lo, 1)} tot {nl(hi, 1)}", lo <= c <= hi))
+    if not np.isnan(c_bron):
+        lo, hi = p["cop_min_bron"], p["cop_max_bron"]
+        checks.append(Check(f"COP bronwarmtepomp ({zlt_bron}) binnen controlebereik", nl(c_bron, 2),
+                            f"{nl(lo, 1)} tot {nl(hi, 1)}", lo <= c_bron <= hi))
     return Resultaat(oplossing, N, b["gas_m3_per_woning"], p["gas_tapwater_koken_m3"], q_jaar_gas(b, p),
                      Q, gd_ref,
                      q_ref, T, vorm_bron, band, c, e_wp, e_p, E, v, P, checks, pomp_invoer,
-                     float(b["woningen"]), float(b["wp_aandeel_huidig"]), mt_opwek, gas * 100, N * q_ref / 24)
+                     float(b["woningen"]), float(b["wp_aandeel_huidig"]), mt_opwek, gas * 100, N * q_ref / 24,
+                     zlt_bron, c_bron, e_bron)
