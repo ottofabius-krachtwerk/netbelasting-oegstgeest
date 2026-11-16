@@ -1,18 +1,19 @@
-"""Kaartnamen en weergavevolgorde. Intern blijft het bordnummer (k1 tot k8); de UI nummert van eenvoudig naar complex."""
+"""Kaartnamen en weergavevolgorde. De tabs tonen het bordnummer (k1 tot k8, zoals op het whiteboard) in de volgorde van
+VOLGORDE, gelijk aan het bordnummer."""
 from ui.charts import KLEUR
 
 KAARTEN = {1: "Woningen basis", 2: "Elektrisch koken", 3: "Warmteoplossing", 4: "Laden personenauto's",
            5: "Laden logistiek", 6: "MKB en grootverbruik", 7: "Zonne-opwek", 8: "Thuisbatterij"}
-VOLGORDE = [2, 1, 4, 8, 3, 7, 5, 6]  # volgorde van de tabs (bordnummers); de UI nummert van links naar rechts
+VOLGORDE = [1, 2, 3, 4, 5, 6, 7, 8]  # volgorde van de tabs, van links naar rechts (bordnummers)
 # Tabs met een rode titel (bordnummers): woningen basis, warmteoplossing, laden personenauto's, laden logistiek, MKB, zon
 ROOD = {1, 3, 4, 5, 6, 7}
-NR = {kaart: i + 1 for i, kaart in enumerate(VOLGORDE)}
-NR_STAPELING = len(VOLGORDE) + 1
+POSITIE = {kaart: i + 1 for i, kaart in enumerate(VOLGORDE)}  # plek van links naar rechts, voor de kleuren
+NR_STAPELING = 9  # stapeling is bord 9
 
 
 def kn(kaart: int) -> int:
-    """Weergavenummer van een kaart."""
-    return NR[kaart]
+    """Nummer van een kaart zoals getoond in de tabtitel: het bordnummer."""
+    return kaart
 
 
 def kaartnaam(kaart: int) -> str:
@@ -21,7 +22,7 @@ def kaartnaam(kaart: int) -> str:
 
 def kleur(kaart: int) -> str:
     """Vaste kleur per kaart, in categorische volgorde van de tabs."""
-    return KLEUR[kn(kaart) - 1]
+    return KLEUR[POSITIE[kaart] - 1]
 
 
 def meta(kaart: int) -> tuple[str, str]:
@@ -31,7 +32,7 @@ def meta(kaart: int) -> tuple[str, str]:
         2: ("huishoudens per buurt · extra aandeel elektrisch koken · kookenergie per huishouden · verloop koken",
             "Klimaatmonitor (huishoudens) · kookenergie: ECN 2014 en Milieu Centraal · kookverloop: RAMP-kookprofielen NL "
             "(2022), middagpiek verlaagd (aanname)"),
-        5: ("extra e-bestelbussen en e-trucks per buurt (aantal; alleen de toename) · laadenergie per voertuigtype · "
+        5: ("e-bestelbussen en e-trucks per buurt (prognose min 2025; alleen de toename) · laadenergie per voertuigtype · "
             "laadprofiel per voertuigtype",
             "invoer zijbalk · laadprofiel: vlak (aanname) · laadenergie: aanname, bron open"),
         4: ("prognose aantal EV's per buurt (scenario laag, middel of hoog; totaal) · aandeel publiek laden · aandeel slim laden thuis en "
@@ -46,8 +47,9 @@ def meta(kaart: int) -> tuple[str, str]:
             "Zonnedakje (overige daken) · verloop verbruik: vlak, alleen werkdagen (aanname)"),
         3: ("woningen per buurt · aandeel woningen met nu al een warmtepomp (alleen de toename telt hier) · gasverbruik "
             "per woning · warmteoplossing en isolatie per buurt · graaddagen · verloop · COP · "
-            "temperatuur en pompvermogen warmtenet · warmtebron MT-net (aquathermie TEO/TEA, ondiepe geothermie, of buiten "
-            "beschouwing) · aandeel gasgestuurde piek- en backupvoorziening",
+            "temperatuur en pompvermogen warmtenet · warmtebron ZLT-net (aquathermie TEO/TEA, ondiepe geothermie, of buiten "
+            "de buurt) · warmteproductie MT-net (collectieve warmtepomp of buiten de buurt) · aandeel gasgestuurde "
+            "piek- en backupvoorziening",
             "Klimaatmonitor (gas per woningtype, woningen) · KNMI station 215 (graaddagen 2025) · "
             "buitentemperatuur: aanname −10 °C · verloop: vlak tot gemeten aggregaatprofiel warmtepompen (mock) · "
             "COP: open"),

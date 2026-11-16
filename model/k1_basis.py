@@ -35,10 +35,11 @@ class Resultaat:
     checks: list[Check]
     e_ev_thuis: float = 0.0  # thuisladen huidige EV's per jaar, kWh
     ev_huidig: float = 0.0   # huidige EV's in de buurt (prognose 2025)
+    netneutraal: float = 0.0  # extra netneutrale woningen: tellen niet mee in N en hebben geen netbelasting
 
 
 def bereken(b, p, dag, prof) -> Resultaat:
-    types = pd.DataFrame([{"woningtype": w, "woningen": float(b[f"woningen_{k}"]),
+    types = pd.DataFrame([{"woningtype": w, "woningen": float(b[f"woningen_{k}"]), "nu": float(b.get(f"woningen_{k}_nu", b[f"woningen_{k}"])),
                            "e_netto_kwh_per_woning": p[f"e_netto_{k}"]} for w, k in WONINGTYPEN.items()])
     types["e_netto_kwh"] = types["woningen"] * types["e_netto_kwh_per_woning"]
     N = float(types["woningen"].sum())
@@ -66,4 +67,4 @@ def bereken(b, p, dag, prof) -> Resultaat:
     ]
     return Resultaat(N, types, e_netto, e_zon, e_jaar_buurt, e_jaar, d, f, E, v, P_verbruik, f_zon,
                      v_zon, P_zon, P, e_dag, checks, e_ev_thuis=e_ev_thuis,
-                     ev_huidig=float(b["ev_huidig"]))
+                     ev_huidig=float(b["ev_huidig"]), netneutraal=float(b.get("extra_netneutraal", 0.0)))

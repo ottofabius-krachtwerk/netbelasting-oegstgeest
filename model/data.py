@@ -12,16 +12,19 @@ WONINGTYPEN = {"Vrijstaand": "vrijstaand", "2-onder-1-kap": "twee_onder_een_kap"
 # EV-prognose per buurt: totaal aantal elektrische personenauto's per scenario en jaar (kolommen ev_<scenario>_<jaar>)
 EV_SCENARIOS = ["laag", "middel", "hoog"]
 EV_JAREN = [2025, 2035, 2050]
+# Logistiek: aantal elektrische bestelbussen en trucks per buurt, per scenario en jaar (kolommen bestel_<scenario>_<jaar>, truck_<...>)
+LOG_TYPEN = ["bestel", "truck"]
 SCHEMA = {
     "buurten.csv": ["buurt_code", "buurt_naam", *[f"woningen_{k}" for k in WONINGTYPEN.values()], "huishoudens",
                     "zon_kwh_jaar", "gas_m3_per_woning", "zon_potentie_kwh_jaar", "zon_bedrijven_kwh_jaar",
-                    *[f"ev_{s}_{j}" for s in EV_SCENARIOS for j in EV_JAREN]],
+                    *[f"ev_{s}_{j}" for s in EV_SCENARIOS for j in EV_JAREN],
+                    *[f"{t}_{s}_{j}" for t in LOG_TYPEN for s in EV_SCENARIOS for j in EV_JAREN]],
     "bedrijfstakken.csv": ["bedrijfstak", "e_jaar_kwh_gemeente"],
     "instraling_dayahead.csv": ["datum", "kwartier", "tijd", "I", "prijs"],
     "profielen.csv": ["kwartier", "tijd", "nedu_e1a", "wp_aggregaat", "koken",
                       "ev_ongestuurd_thuis", "ev_ongestuurd_thuis_sd", "ev_slim_thuis", "ev_slim_thuis_sd",
                       "ev_ongestuurd_publiek", "ev_ongestuurd_publiek_sd", "ev_slim_publiek", "ev_slim_publiek_sd", "logistiek_bestel",
-                      "logistiek_truck"],
+                      "logistiek_truck", "logistiek_bestel_slim", "logistiek_truck_slim"],
     "parameters.csv": ["naam", "kaart", "rol", "label", "waarde", "eenheid", "min", "max", "stap", "status", "bron"],
     "status.csv": ["naam", "status", "bron"],
 }

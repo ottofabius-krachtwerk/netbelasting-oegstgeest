@@ -76,8 +76,12 @@ def kaart1(r: k1_basis.Resultaat, p, dag, tag) -> None:
     t = r.types
     # A · jaarverbruik
     stap(1, "Aantal woningen", nl(r.N), "woningen", tag=tag("buurten"),
-         reken=[" + ".join(nl(n) for n in t["woningen"]) + f" = {nl(r.N)} woningen"],
-         uitleg="Som van de woningen per woningtype in de buurt.",
+         reken=[" + ".join(nl(n) for n in t["woningen"]) + f" = {nl(r.N)} woningen"]
+               + [f"{w}: {nl(nu)} nu {'+' if n >= nu else '−'} {nl(abs(n - nu))} {'extra' if n >= nu else 'gesloopt'} = {nl(n)}"
+                  for w, nu, n in zip(t["woningtype"], t["nu"], t["woningen"]) if n != nu]
+               + ([f"netneutrale woningen: {nl(r.netneutraal)}, geen netbelasting en niet in het totaal"]
+                  if r.netneutraal else []),
+         uitleg="Som van de woningen per woningtype in de buurt, inclusief de extra woningen (of sloop) uit de zijbalk.",
          bron="CBS (woningen per woningtype per buurt)")
     stap(2, "Netto jaarverbruik", nl(r.e_netto / 1e3), "MWh/jaar",
          tag=tag("buurten", *[f"e_netto_{k}" for k in WONINGTYPEN.values()]),
@@ -164,14 +168,18 @@ def kaart1(r: k1_basis.Resultaat, p, dag, tag) -> None:
 def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: float) -> None:
     k = kleur(3)
     q_par = ("buurten", "gas_tapwater_koken_m3", "calorische_waarde", "ketelrendement")
-    cop_par = {"geen": ("cop_ae",), "all-electric": ("cop_ae",), "ZLT": ("t_net_zlt", "cop_zlt_a", "cop_zlt_b"),
+    bron_zlt = r.oplossing == "ZLT" and not np.isnan(r.cop_bron)  # ZLT met een bronwarmtepomp in de buurt
+    cop_par = {"geen": ("cop_ae",), "all-electric": ("cop_ae",),
+               "ZLT": ("t_net_zlt", "cop_zlt_a", "cop_zlt_b")
+                      + (("eta_bron", "cop_bron_max", k3_warmtepomp.ZLT_T_BRON[r.zlt_bron]) if bron_zlt else ()),
                "MT": (k3_warmtepomp.MT_COP[r.mt_opwek], "mt_gas_pct") if r.mt_opwek in k3_warmtepomp.MT_COP else ()
                }[r.oplossing]
     net = r.oplossing in ("ZLT", "MT")
     _kop(3)
     _formule("Profiel = aantal woningen × stroom per woning op deze dag × verloop over de dag; "
-             "stroom = warmtevraag ÷ COP" + (" + pompenergie van het warmtenet" if net else ""),
-             "P[t] = 4 × N × E × v[t], E = Q_ref ÷ COP" + (" + E_pomp" if net else ""))
+             "stroom = warmtevraag ÷ COP" + (" + stroom voor de bronwarmtepomp" if bron_zlt else "")
+             + (" + pompenergie van het warmtenet" if net else ""),
+             "P[t] = 4 × N × E × v[t], E = Q_ref ÷ COP" + (" + E_bron" if bron_zlt else "") + (" + E_pomp" if net else ""))
     stap(1, "Extra woningen op de warmteoplossing", nl(r.N), "woningen", extra=[("warmteoplossing", r.oplossing)],
          tag=tag("buurten"),
          reken=["geen: 0 woningen"] if r.oplossing == "geen" else
@@ -219,8 +227,10 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
          bron="aanname (constant)")
     extra6 = []
     if not np.isnan(r.cop):
-        naam6 = {"ZLT": "booster", "MT": f"collectieve warmtepomp ({r.mt_opwek})"}.get(r.oplossing, "warmtepomp")
+        naam6 = {"ZLT": "booster", "MT": "collectieve warmtepomp"}.get(r.oplossing, "warmtepomp")
         extra6.append((naam6, f"{nl(r.e_warmtepomp, 2)} kWh (COP {nl(r.cop, 2)})"))
+    if bron_zlt:
+        extra6.append((f"bronwarmtepomp ({r.zlt_bron})", f"{nl(r.e_bron, 2)} kWh (COP {nl(r.cop_bron, 2)})"))
     if net:
         extra6.append(("pompen warmtenet", f"{nl(r.e_pomp, 2)} kWh ({nl(p['pomp_w_woning'])} W × 24 uur)"
                        if r.pomp_invoer == "per woning" else
@@ -228,6 +238,15 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
                        f"verdeeld over {nl(r.N)} woningen)"))
     extra6.append(("piek", f"{nl(_piek_per_eenheid(r.E, r.v), 2)} kW per woning"))
     reken6 = None
+    if bron_zlt:
+        q_net = r.q_ref * (1 - 1 / r.cop)
+        t_bron = p[k3_warmtepomp.ZLT_T_BRON[r.zlt_bron]]
+        reken6 = [f"booster: {nl(r.q_ref, 1)} kWh warmte ÷ COP {nl(r.cop, 2)} = {nl(r.e_warmtepomp, 2)} kWh stroom",
+                  f"warmte uit het net: {nl(r.q_ref, 1)} kWh × (1 − 1 ÷ {nl(r.cop, 2)}) = {nl(q_net, 1)} kWh",
+                  f"bronwarmtepomp ({nl(t_bron)} °C naar {nl(p['t_net_zlt'])} °C): {nl(p['eta_bron'] * 100)} % × "
+                  f"{nl(p['t_net_zlt'] + 273.15, 1)} K ÷ {nl(max(p['t_net_zlt'] - t_bron, 0), 1)} K, begrensd op "
+                  f"{nl(p['cop_bron_max'], 1)} = COP {nl(r.cop_bron, 2)}",
+                  f"{nl(q_net, 1)} kWh ÷ COP {nl(r.cop_bron, 2)} = {nl(r.e_bron, 2)} kWh stroom"]
     if r.oplossing == "MT" and r.mt_opwek in k3_warmtepomp.MT_COP:
         g, piek = r.gas_pct, r.piek_warmte_kw
         reken6 = [f"piekvraag warmte: {nl(r.N)} woningen × {nl(r.q_ref, 1)} kWh ÷ 24 uur = {nl(piek)} kW warmte",
@@ -241,29 +260,35 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
                  "all-electric": "Warmtevraag op deze dag ÷ één COP voor de hele dag.",
                  "ZLT": f"De booster tilt het water van het warmtenet ({nl(p['t_net_zlt'])} °C) op: warmtevraag ÷ COP. "
                         "De COP hangt lineair af van de nettemperatuur (vaste term + per graad × temperatuur); later "
-                        "beter: Carnot × rendement met de aanvoertemperatuur in de woning. Daarbij een vast "
-                        "pompvermogen (per woning of als totaal voor de buurt), los van de warmtevraag.",
+                        "beter: Carnot × rendement met de aanvoertemperatuur in de woning. "
+                        + ("De rest van de warmte komt uit het net; de centrale bronwarmtepomp haalt die uit de bron "
+                           f"({r.zlt_bron}) en tilt hem naar de nettemperatuur. COP = rendement × Carnot "
+                           "(T_net ÷ (T_net − T_bron)), begrensd op een maximum; een hogere nettemperatuur geeft een "
+                           "betere booster maar een slechtere bronwarmtepomp. Ondiepe geothermie is in de praktijk "
+                           "beperkt beschikbaar. " if bron_zlt else
+                           "De bron ligt buiten de buurt: de stroom voor de bron telt niet mee. ")
+                        + "Daarbij een vast pompvermogen (per woning of als totaal voor de buurt), los van de "
+                          "warmtevraag.",
                  "MT": "Geen warmtepomp per woning. Warmteproductie is buiten de buurt: alleen een vast "
                        "pompvermogen (per woning of als totaal voor de buurt)." if r.mt_opwek not in k3_warmtepomp.MT_COP
-                       else f"De basislast komt uit {r.mt_opwek}, op 70 °C gebracht met collectieve warmtepompen in "
-                            "combinatie met WKO (één systeem-COP per bron). Een gasgestuurde piek- en backupvoorziening "
-                            "vangt een instelbaar deel van de piekvraag op; de warmtepomp levert de rest. De warmtevraag "
-                            "is op deze koude dag constant genomen (buffering in het net), dus het deel van de piek is "
-                            "ook het deel van de energie. Daarbij een vast pompvermogen. Geen warmteverlies in het net "
-                            "(voorlopig)." + (" Ondiepe geothermie is in de praktijk beperkt beschikbaar."
-                                              if r.mt_opwek == "ondiepe geothermie" else "")}[r.oplossing],
+                       else "Een collectieve warmtepomp brengt de warmte op 70 °C (één systeem-COP). Een gasgestuurde "
+                            "piek- en backupvoorziening vangt een instelbaar deel van de piekvraag op; de warmtepomp "
+                            "levert de rest. De warmtevraag is op deze koude dag constant genomen (buffering in het "
+                            "net), dus het deel van de piek is ook het deel van de energie. Daarbij een vast "
+                            "pompvermogen. Geen warmteverlies in het net (voorlopig)."}[r.oplossing],
          bron={"geen": "stap 3 · COP: bron open", "all-electric": "stap 3 · COP: bron open",
-               "ZLT": "stap 3 · nettemperatuur: projectaanname 25 °C · COP-lijn en pompvermogen: bron open",
-               "MT": "stap 3 · warmtebron en aandeel gas: invoer zijbalk · systeem-COP per bron en pompvermogen: "
+               "ZLT": "stap 3 · nettemperatuur: projectaanname 25 °C · warmtebron: invoer zijbalk · COP-lijn, "
+                      "bronwarmtepomp (brontemperatuur, rendement) en pompvermogen: bron open",
+               "MT": "stap 3 · warmteproductie en aandeel gas: invoer zijbalk · systeem-COP en pompvermogen: "
                      "bron open"}[r.oplossing])
     stap(6, "Warmteoplossingen naast elkaar", None,
          fig=lijn({o: v.P for o, v in varianten.items()}, KLEUR[:len(varianten)], "kW", fmt=",.0f"),
          extra=[(o, f"{nl(v.P.max())} kW ({nl(_piek_per_eenheid(v.E, v.v), 2)} kW per woning)")
                 for o, v in varianten.items()],
-         tag=tag("t_ref", *q_par, "cop_ae", "cop_zlt_a", "cop_zlt_b", "cop_mt_teo", "cop_mt_tea", "cop_mt_geo", "pomp_w_woning",
-                 "wp_aggregaat"),
-         uitleg="Dezelfde buurt bij elke warmteoplossing; bij 'geen' komen er geen woningen bij (0 kW). MT met de "
-                "gekozen opwek.",
+         tag=tag("t_ref", *q_par, "cop_ae", "cop_zlt_a", "cop_zlt_b", "t_bron_teo", "t_bron_tea", "t_bron_geo", "eta_bron",
+                 "cop_bron_max", "cop_mt_wp", "pomp_w_woning", "wp_aggregaat"),
+         uitleg="Dezelfde buurt bij elke warmteoplossing; bij 'geen' komen er geen woningen bij (0 kW). ZLT en MT "
+                "met de gekozen bron of warmteproductie.",
          bron="stappen 1 tot en met 5, voor elke warmteoplossing")
     fig = None
     n = r.N if r.N > 0 else 1.0  # per woning (genormaliseerd); zonder extra woningen ("geen") blijft het 0
@@ -417,19 +442,23 @@ def kaart5(r: k5_logistiek.Resultaat, p, tag) -> None:
              "P[t] = Σ 4 × N × E × v[t]")
     stap(1, "Extra elektrische voertuigen", nl(sum(k.N for k in kl.values())), "voertuigen", tag=tag("buurten"),
          extra=[(n, nl(k.N)) for n, k in kl.items()],
-         uitleg="Alleen de toename: het aantal extra e-bestelbussen en e-trucks dat in de buurt laadt (zijbalk). Wat "
+         uitleg="Alleen de toename: de prognose van het gekozen logistiek-scenario en zichtjaar min het aantal in 2025, apart voor "
+                "e-bestelbussen en e-trucks. Wat "
                 f"nu al bij bedrijven laadt, zit in het verbruik van tab {kn(6)}.",
-         bron="invoer zijbalk")
+         bron="Bewerkte data per buurt 1-1-2025: elektrische bestelauto's en trucks per scenario en jaar")
     stap(2, "Laadenergie per voertuig per dag", None, tag=tag("log_e_dag_bestel", "log_e_dag_truck"),
          reken=[f"{n}: {nl(k.N)} voertuigen × {nl(k.E)} kWh = {nl(k.N * k.E)} kWh" for n, k in kl.items()],
          uitleg="Aangenomen laadenergie per voertuigtype op een werkdag.",
          bron="aanname (bron open)")
-    stap(3, "Laadprofiel: vlak", None,
-         reken=[f"{n}: {nl(k.E)} kWh ÷ 24 uur = {nl(_piek_per_eenheid(k.E, k.v), 2)} kW per voertuig, elk kwartier"
-                for n, k in kl.items()],
-         uitleg="Voorlopig nemen we voor beide types een vlak laadprofiel aan: de laadenergie is gelijk verdeeld over de "
-                "dag.",
-         bron="aanname (vlak) · later: ElaadNL laadprofiel logistiek (te bevestigen)")
+    stap(3, "Laadprofiel per type", None,
+         tag=tag("logistiek_bestel", "logistiek_truck", "logistiek_bestel_slim", "logistiek_truck_slim",
+                 "slim_log_bestel", "slim_log_truck"),
+         reken=[f"{n}: {nl(k.slim * 100)} % slim (22:00 tot 06:00, vlak), {nl((1 - k.slim) * 100)} % ongestuurd; "
+                f"piek {nl(_piek_per_eenheid(k.E, k.v), 2)} kW per voertuig" for n, k in kl.items()],
+         uitleg="Verloop van de laadenergie over de dag. Ongestuurd laden volgt een schetsprofiel: bestelbussen laden "
+                "vooral aan het eind van de werkdag (piek rond 21:00), trucks 's avonds en 's nachts met bijladen "
+                "overdag. Slim laden is vlak van 22:00 tot 06:00. Het aandeel slim laden stel je in de zijbalk in.",
+         bron="aanname (schetsprofielen) · later: laadprofiel logistiek uit een bron (te bevestigen)")
     p_en_checks(4, r.P, kleur(5), r.checks, naam="Profiel per voertuigtype",
                 fig=gestapeld({n: k.P for n, k in kl.items()}, kleuren, totaal=r.P))
     _vast(5)

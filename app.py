@@ -3,7 +3,7 @@ import pandas as pd
 import streamlit as st
 
 from model import k1_basis, k2_koken, k3_warmtepomp, k4_laden_auto, k5_logistiek, k6_mkb, k7_zon, k8_batterij, stapeling
-from model.data import DATA, EV_SCENARIOS, WARMTEOPLOSSINGEN, DataFout, laad
+from model.data import DATA, EV_SCENARIOS, LOG_TYPEN, WARMTEOPLOSSINGEN, WONINGTYPEN, DataFout, laad
 from ui import invoer, tabs
 from ui.kaarten import ROOD, VOLGORDE, kaartnaam, kleur
 
@@ -13,7 +13,7 @@ st.markdown("<style>.block-container{padding-top:2.2rem;padding-bottom:1rem}"
 
 
 
-TABLABEL = {k: f":red[{kaartnaam(k)}]" if k in ROOD else kaartnaam(k) for k in VOLGORDE} | {9: f"{len(VOLGORDE) + 1} Stapeling"}
+TABLABEL = {k: f":red[{kaartnaam(k)}]" if k in ROOD else kaartnaam(k) for k in VOLGORDE} | {9: "9 Stapeling"}
 # De gekozen tab (uit de vorige run) bepaalt welke groep in de zijbalk open staat
 ACTIEF = {v: k for k, v in TABLABEL.items()}.get(st.session_state.get("tabkeuze"), VOLGORDE[0])
 
@@ -75,14 +75,21 @@ with st.sidebar:
             wo = b["warmteoplossing"]
             keuzes["pomp_invoer"], keuzes["wp_vorm"] = k3_warmtepomp.POMPINVOER[0], k3_warmtepomp.VORMEN[0]
             keuzes["mt_opwek"] = k3_warmtepomp.MT_STANDAARD
+            keuzes["zlt_bron"] = k3_warmtepomp.ZLT_STANDAARD
             b["pomp_kw_buurt"] = invoer.ALGEMEEN["pomp_w_woning"].standaard * b["woningen"] / 1000
             if wo == "MT":
-                keuzes["mt_opwek"] = st.radio(f"Warmtebron MT-net 70 °C ({buurt})", k3_warmtepomp.MT_OPWEK,
+                keuzes["mt_opwek"] = st.radio(f"Warmteproductie MT-net 70 °C ({buurt})", k3_warmtepomp.MT_OPWEK,
                                               index=k3_warmtepomp.MT_OPWEK.index(k3_warmtepomp.MT_STANDAARD),
                                               format_func=lambda o: {"buiten beschouwing": "warmteproductie is buiten "
-                                                                     "de buurt"}.get(o, f"{o} + collectieve "
-                                                                                                 "warmtepomp en WKO"),
+                                                                     "de buurt"}.get(o, f"{o} naar 70 °C"),
                                               key=f"{bron}:mtopwek:{code}")
+            if wo == "ZLT":
+                keuzes["zlt_bron"] = st.radio(f"Warmtebron ZLT-net ({buurt})", k3_warmtepomp.ZLT_BRON,
+                                              index=k3_warmtepomp.ZLT_BRON.index(k3_warmtepomp.ZLT_STANDAARD),
+                                              format_func=lambda o: {"buiten beschouwing": "bron is buiten de buurt "
+                                                                     "(bronstroom telt niet mee)"}.get(o, f"{o} + "
+                                                                                                          "centrale bronwarmtepomp"),
+                                              key=f"{bron}:zltbron:{code}")
             if wo in ("ZLT", "MT"):  # alleen bij een warmtenet
                 keuzes["pomp_invoer"] = st.radio("Pompvermogen warmtenet opgeven als", k3_warmtepomp.POMPINVOER,
                                                  horizontal=True, key=f"{bron}:pompinvoer")
@@ -96,10 +103,15 @@ with st.sidebar:
                                                                     "gemeten": "gemeten aggregaat"}[v],
                                              key=f"{bron}:wpvorm")
         elif kaart == 4:  # prognose: totaal aantal EV's in de buurt, één scenario voor alle buurten
-            keuzes["ev_scenario"] = st.radio("Prognose elektrische auto's", EV_SCENARIOS, horizontal=True,
+            keuzes["ev_scenario"] = st.radio("Prognose elektrische personenauto's", EV_SCENARIOS, horizontal=True,
                                              index=EV_SCENARIOS.index(invoer.EV_SCENARIO), key=f"{bron}:ev_scenario")
             b["ev_aantal"] = float(b[f"ev_{keuzes['ev_scenario']}_{jaar}"])
             b["ev_huidig"] = float(b[f"ev_{keuzes['ev_scenario']}_2025"])
+        elif kaart == 5:  # logistiek: eigen scenario, alleen de toename t.o.v. 2025
+            keuzes["log_scenario"] = st.radio("Prognose elektrische bestelbussen en trucks", EV_SCENARIOS, horizontal=True,
+                                              index=EV_SCENARIOS.index(invoer.EV_SCENARIO), key=f"{bron}:log_scenario")
+            for t in LOG_TYPEN:
+                b[f"log_{t}_extra"] = max(0.0, float(b[f"{t}_{keuzes['log_scenario']}_{jaar}"]) - float(b[f"{t}_{keuzes['log_scenario']}_2025"]))
         elif kaart == 8:
             keuzes["bat_modus"] = st.radio("Batterijmodus", k8_batterij.MODI, key=f"{bron}:batmodus")
             keuzes["bat_kwh"] = st.radio("Capaciteit per thuisbatterij", k8_batterij.GROOTTES, index=1, horizontal=True,
@@ -116,7 +128,7 @@ with st.sidebar:
         return True
 
     p = {naam: float(r["waarde"]) for naam, r in data.parameters.iterrows()}  # data en aannames, onderaan de tab
-    met_keuzes = {v.kaart for v in invoer.PER_BUURT.values()} | {3, 4, 8}
+    met_keuzes = {v.kaart for v in invoer.PER_BUURT.values()} | {3, 4, 5, 8}
     for kaart in VOLGORDE:
         velden = {n: v for n, v in invoer.ALGEMEEN.items() if v.kaart == kaart}
         if not velden and kaart not in met_keuzes:
@@ -125,6 +137,11 @@ with st.sidebar:
             _keuzes(kaart)
             for naam, v in velden.items():
                 p[naam] = _veld(naam, v) if _relevant(naam) else invoer.standaard(naam, v, jaar)  # niet van toepassing: standaard
+
+    for k in WONINGTYPEN.values():  # extra woningen (of sloop) per type: alle tabs rekenen met het totaal
+        b[f"woningen_{k}_nu"] = float(b[f"woningen_{k}"])
+        b[f"woningen_{k}"] = max(0.0, b[f"woningen_{k}_nu"] + b[f"extra_woningen_{k}"])
+    b["woningen"] = sum(b[f"woningen_{k}"] for k in WONINGTYPEN.values())
 
     def _status(*namen: str) -> str:
         """Status van data en aannames; invoervelden zijn keuzes en tellen niet mee."""
@@ -143,8 +160,9 @@ st.markdown(kop + ("  :gray-badge[mockdata]" if bron == "mock" else ""))
 
 # Tabkeuze met rerun: de zijbalk opent de groep van de gekozen tab, en alleen die tab wordt opgebouwd
 t = dict(zip(TABLABEL, st.tabs(list(TABLABEL.values()), key="tabkeuze", on_change="rerun")))
-r3 = k3_warmtepomp.bereken(b, p, dag, prof, wp_vorm=wp_vorm, pomp_invoer=keuzes["pomp_invoer"], mt_opwek=keuzes["mt_opwek"])
-varianten = {o: k3_warmtepomp.bereken(b, p, dag, prof, o, wp_vorm, keuzes["pomp_invoer"], keuzes["mt_opwek"])
+r3 = k3_warmtepomp.bereken(b, p, dag, prof, wp_vorm=wp_vorm, pomp_invoer=keuzes["pomp_invoer"], mt_opwek=keuzes["mt_opwek"],
+                            zlt_bron=keuzes["zlt_bron"])
+varianten = {o: k3_warmtepomp.bereken(b, p, dag, prof, o, wp_vorm, keuzes["pomp_invoer"], keuzes["mt_opwek"], keuzes["zlt_bron"])
              for o in WARMTEOPLOSSINGEN}
 r4 = k4_laden_auto.bereken(b, p, prof)
 r7 = k7_zon.bereken(b, p, dag)

@@ -73,6 +73,10 @@ for _c in ["ev_ongestuurd_thuis", "ev_ongestuurd_thuis_sd", "ev_slim_thuis", "ev
     prof[_c] = _elaad[_c].to_numpy()
 prof["logistiek_bestel"] = ruis(0.1 + 1.0 * gauss(21.0, 2.5) + 0.3 * gauss(13.0, 1.5))
 prof["logistiek_truck"] = ruis(0.15 + 1.0 * gauss(22.5, 2.0) + 0.5 * gauss(12.5, 1.0))
+# slim laden logistiek: vlak van 22:00 tot 06:00 (aanname)
+_nacht = np.array([1.0 if (k < 24 or k >= 88) else 0.0 for k in range(96)])
+prof["logistiek_bestel_slim"] = _nacht
+prof["logistiek_truck_slim"] = _nacht
 for c in prof.columns[4:]:
     prof[c] = prof[c].round(10)
 
@@ -101,6 +105,11 @@ buurten = pd.DataFrame([{
     "ev_hoog_2025": 84,
     "ev_hoog_2035": 700,
     "ev_hoog_2050": 1300,
+    # mock: prognose e-bestelbussen en e-trucks in de buurt per scenario en jaar (2025 voor alle scenario's gelijk)
+    **{f"{t}_{s}_{j}": w for t, rij in {
+        "bestel": {"laag": (2, 12, 20), "middel": (2, 15, 25), "hoog": (2, 18, 30)},
+        "truck": {"laag": (1, 3, 6), "middel": (1, 5, 9), "hoog": (1, 7, 12)}}.items()
+       for s, ws in rij.items() for j, w in zip((2025, 2035, 2050), ws)},
     "zon_bedrijven_kwh_jaar": 300_000,  # mock: jaaropwek zon op overige daken (Zonnedakje alle daken min woningen)
 }])
 

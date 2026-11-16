@@ -4,6 +4,8 @@ ALGEMEEN geldt voor alle buurten samen, PER_BUURT krijgt per buurt een eigen vel
 """
 from dataclasses import dataclass
 
+from model.data import WONINGTYPEN
+
 
 @dataclass(frozen=True)
 class Veld:
@@ -32,15 +34,20 @@ ALGEMEEN = {
     "groei_niet_huish": Veld(6, "Groei verbruik niet-huishoudelijk gemeente",
                              "MWh per jaar, bovenop het huidige verbruik; gelijk verdeeld over de buurten",
                              0, -20000, 100000, 100),
+    "slim_log_bestel": Veld(5, "Aandeel slim laden bestelbussen", "% van de laadenergie van bestelbussen", 0, 0, 100, 5),
+    "slim_log_truck": Veld(5, "Aandeel slim laden trucks", "% van de laadenergie van trucks", 0, 0, 100, 5),
     "bat_adoptie": Veld(8, "Woningen met thuisbatterij", "% van alle woningen in de buurt", 10, 0, 100, 1),
 }
 
 PER_BUURT = {
+    # extra woningen per type (negatief: sloop); tellen mee in woningen basis, warmteoplossing en thuisbatterij
+    "extra_netneutraal": Veld(1, "Extra netneutrale woningen", "aantal in de buurt; geen netbelasting, dus niet in de "
+                              "berekening", 0, 0, 5000, 1),
+    **{f"extra_woningen_{k}": Veld(1, f"Extra woningen {w.lower()}", "aantal woningen in de buurt; negatief is sloop",
+                                   0, -5000, 5000, 1) for w, k in WONINGTYPEN.items()},
     "wp_aandeel_huidig": Veld(3, "Woningen met nu al een warmtepomp",
                               "% van alle woningen; die gaan niet nog eens over", 0, 0, 100, 1),
     "isolatie_reductie": Veld(3, "Isolatie", "% minder warmtevraag per woning dan nu", 0, 0, 80, 1),
-    "log_bestel_extra": Veld(5, "Extra e-bestelbussen", "aantal dat in de buurt laadt", 0, 0, 10000, 1),
-    "log_truck_extra": Veld(5, "Extra e-trucks", "aantal dat in de buurt laadt", 0, 0, 10000, 1),
     "zon_benutting_pct": Veld(7, "Extra zon", "% van de resterende dakpotentie, alle daken in de buurt", 0, 0, 50, 1),
 }
 WARMTEOPLOSSING = "geen"  # standaard per buurt in zichtjaar 2025
@@ -56,11 +63,11 @@ STANDAARD_PER_JAAR = {
     "koken_penetratie_groei": {2025: 0, 2035: 25, 2050: 75},
     "slim_thuis": {2025: 0, 2035: 25, 2050: 50},
     "slim_publiek": {2025: 0, 2035: 25, 2050: 50},
+    "slim_log_bestel": {2025: 0, 2035: 25, 2050: 50},
+    "slim_log_truck": {2025: 0, 2035: 25, 2050: 50},
     "groei_niet_huish": {2025: 0, 2035: 3600, 2050: 7200},  # MWh per jaar; ruim 10 en 20 % van 36 GWh
     "bat_adoptie": {2025: 10, 2035: 20, 2050: 35},
     "isolatie_reductie": {2025: 0, 2035: 10, 2050: 20},
-    "log_bestel_extra": {2025: 0, 2035: 10, 2050: 30},
-    "log_truck_extra": {2025: 0, 2035: 2, 2050: 8},
     "zon_benutting_pct": {2025: 0, 2035: 20, 2050: 40},
 }
 # De warmteoplossing wisselt bewust niet mee met het zichtjaar (blijft de eigen keuze per buurt).
