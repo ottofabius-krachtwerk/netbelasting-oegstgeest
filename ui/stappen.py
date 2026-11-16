@@ -58,15 +58,16 @@ def rekenregels(reken: list[str] | None) -> str:
 
 
 def p_en_checks(nr: int, P, kleur: str, checks: list[Check], naam: str = "Profiel over de dag", fig=None,
-                reken: list[str] | None = None, noot: str = "") -> None:
+                reken: list[str] | None = None, noot: str = "", eenheid: str = "kW", dec: int = 0) -> None:
     links, rechts = st.columns([1.7, 1])
     i_max, i_min = int(np.argmax(P)), int(np.argmin(P))
     with links, st.container(border=True):
-        kern = (f"constant <b>{nl(P[0])} kW</b>" if np.ptp(P) < 1e-9 else
-                f"max <b>{nl(P[i_max])} kW</b> om {TIJD[i_max]} · min <b>{nl(P[i_min])} kW</b> om {TIJD[i_min]}")
+        kern = (f"constant <b>{nl(P[0], dec)} {eenheid}</b>" if np.ptp(P) < 1e-9 else
+                f"max <b>{nl(P[i_max], dec)} {eenheid}</b> om {TIJD[i_max]} · min <b>{nl(P[i_min], dec)} {eenheid}</b> "
+                f"om {TIJD[i_min]}")
         st.markdown(f"**{nr} · {naam}** <span style='color:#52514e;font-size:.85rem;margin-left:.5rem'>{kern}</span>",
                     unsafe_allow_html=True)
-        toon(fig if fig is not None else lijn({"profiel": P}, [kleur], "kW", H_GROOT, fmt=",.1f", vlak=True))
+        toon(fig if fig is not None else lijn({"profiel": P}, [kleur], eenheid, H_GROOT, fmt=",.1f", vlak=True))
         if reken:
             st.markdown(rekenregels(reken), unsafe_allow_html=True)
     with rechts, st.container(border=True):

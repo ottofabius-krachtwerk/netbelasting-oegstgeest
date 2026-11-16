@@ -41,15 +41,24 @@ with st.sidebar:
         st.error(f"data/{bron}/buurten.csv bevat geen buurten.")
         st.stop()
     code = st.selectbox("Buurt", data.buurten.index, format_func=lambda c: data.buurten.loc[c, "buurt_naam"])
+    jaar = st.radio("Zichtjaar", invoer.JAREN, horizontal=True, key="zichtjaar",
+                    help="Zet de invoer in de zijbalk op de standaardwaarden van dat jaar; eigen wijzigingen vervallen bij "
+                         "een jaarwissel. De warmteoplossing wisselt niet mee. Waarden voor 2035 en 2050 zijn voorlopige "
+                         "aannames.")
+    st.caption("Bij het kiezen van een jaar worden de huidige instellingen in de zijbalk overschreven door de "
+               "standaardwaarden van dat jaar (de warmteoplossing blijft staan).")
     b = data.buurten.loc[code].copy()
     buurt = b["buurt_naam"]
     keuzes = {}
 
     def _veld(naam: str, v: invoer.Veld, per_buurt: bool = False, standaard: float | None = None) -> float:
-        """Eén invoerveld; per-buurt-velden hebben de buurtnaam in het label en een eigen sleutel per buurt."""
+        """Eén invoerveld; per-buurt-velden hebben de buurtnaam in het label en een eigen sleutel per buurt.
+        De standaardwaarde hangt af van het zichtjaar; het jaar zit in de sleutel, dus een jaarwissel geeft een
+        vers veld met de standaardwaarde van dat jaar (Streamlit wist de status van velden die niet meer getoond worden)."""
         label = f"{v.label} {buurt} ({v.eenheid})" if per_buurt else f"{v.label} ({v.eenheid})"
-        return st.number_input(label, float(v.min), float(v.max), float(v.standaard if standaard is None else standaard),
-                               float(v.stap), key=f"{bron}:{naam}:{code}" if per_buurt else f"{bron}:{naam}",
+        start = invoer.standaard(naam, v, jaar) if standaard is None else standaard
+        return st.number_input(label, float(v.min), float(v.max), float(start), float(v.stap),
+                               key=f"{bron}:{jaar}:{naam}:{code}" if per_buurt else f"{bron}:{jaar}:{naam}",
                                help=v.uitleg or None)
 
     def _keuzes(kaart: int) -> None:
@@ -65,12 +74,13 @@ with st.sidebar:
                 b[naam] = _veld(naam, invoer.PER_BUURT[naam], per_buurt=True)
             wo = b["warmteoplossing"]
             keuzes["pomp_invoer"], keuzes["wp_vorm"] = k3_warmtepomp.POMPINVOER[0], k3_warmtepomp.VORMEN[0]
-            keuzes["mt_opwek"] = k3_warmtepomp.MT_OPWEK[0]
+            keuzes["mt_opwek"] = k3_warmtepomp.MT_STANDAARD
             b["pomp_kw_buurt"] = invoer.ALGEMEEN["pomp_w_woning"].standaard * b["woningen"] / 1000
             if wo == "MT":
                 keuzes["mt_opwek"] = st.radio(f"Warmtebron MT-net 70 °C ({buurt})", k3_warmtepomp.MT_OPWEK,
-                                              format_func=lambda o: {"buiten beschouwing": "warmteproductie buiten "
-                                                                     "beschouwing laten"}.get(o, f"{o} + collectieve "
+                                              index=k3_warmtepomp.MT_OPWEK.index(k3_warmtepomp.MT_STANDAARD),
+                                              format_func=lambda o: {"buiten beschouwing": "warmteproductie is buiten "
+                                                                     "de buurt"}.get(o, f"{o} + collectieve "
                                                                                                  "warmtepomp en WKO"),
                                               key=f"{bron}:mtopwek:{code}")
             if wo in ("ZLT", "MT"):  # alleen bij een warmtenet
@@ -88,7 +98,7 @@ with st.sidebar:
         elif kaart == 4:  # prognose: totaal aantal EV's in de buurt, één scenario voor alle buurten
             keuzes["ev_scenario"] = st.radio("Prognose elektrische auto's", EV_SCENARIOS, horizontal=True,
                                              index=EV_SCENARIOS.index(invoer.EV_SCENARIO), key=f"{bron}:ev_scenario")
-            b["ev_aantal"] = float(b[f"ev_{keuzes['ev_scenario']}_{invoer.JAAR}"])
+            b["ev_aantal"] = float(b[f"ev_{keuzes['ev_scenario']}_{jaar}"])
             b["ev_huidig"] = float(b[f"ev_{keuzes['ev_scenario']}_2025"])
         elif kaart == 8:
             keuzes["bat_modus"] = st.radio("Batterijmodus", k8_batterij.MODI, key=f"{bron}:batmodus")
@@ -114,7 +124,7 @@ with st.sidebar:
         with st.expander(kaartnaam(kaart).replace(" ", " · ", 1), expanded=kaart == ACTIEF):
             _keuzes(kaart)
             for naam, v in velden.items():
-                p[naam] = _veld(naam, v) if _relevant(naam) else float(v.standaard)  # niet van toepassing: standaard
+                p[naam] = _veld(naam, v) if _relevant(naam) else invoer.standaard(naam, v, jaar)  # niet van toepassing: standaard
 
     def _status(*namen: str) -> str:
         """Status van data en aannames; invoervelden zijn keuzes en tellen niet mee."""
@@ -147,7 +157,7 @@ if t[3].open:
         tabs.kaart3(r3, varianten, p, _status, b["isolatie_reductie"])
 if t[4].open:
     with t[4]:
-        tabs.kaart4(r4, p, _status, keuzes["ev_scenario"], invoer.JAAR)
+        tabs.kaart4(r4, p, _status, keuzes["ev_scenario"], jaar)
 if t[7].open:
     with t[7]:
         tabs.kaart7(r7, p, _status)

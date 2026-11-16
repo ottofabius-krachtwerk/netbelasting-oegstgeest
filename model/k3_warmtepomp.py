@@ -13,6 +13,7 @@ TECH = {"geen": "ae", "all-electric": "ae", "ZLT": "zlt"}
 POMPINVOER = ["per woning", "totaal buurt"]
 # MT (70 °C): warmteproductie buiten beschouwing, of een bron opgewaardeerd met collectieve warmtepompen en WKO
 MT_OPWEK = ["buiten beschouwing", "aquathermie TEO", "aquathermie TEA", "ondiepe geothermie"]
+MT_STANDAARD = MT_OPWEK[1]  # standaard met warmteproductie, zodat de warmtevraag meetelt in de vergelijking met andere oplossingen
 MT_COP = {"aquathermie TEO": "cop_mt_teo", "aquathermie TEA": "cop_mt_tea", "ondiepe geothermie": "cop_mt_geo"}
 VORMEN = ["vlak", "gemeten"]  # bandbreedte voor all-electric: maximale buffering, of gemeten aggregaatprofiel
 
@@ -34,7 +35,7 @@ def n_woningen(oplossing: str, b) -> float:
     return b["woningen"] * (1 - b["wp_aandeel_huidig"] / 100)
 
 
-def cop_dag(oplossing: str, p, mt_opwek: str = MT_OPWEK[0]) -> float:
+def cop_dag(oplossing: str, p, mt_opwek: str = MT_STANDAARD) -> float:
     """Eén COP voor de referentiedag; MT zonder meegerekende warmteproductie heeft geen opwek (dan nan).
 
     "geen": geen extra woningen; de COP van all-electric wordt alleen getoond.
@@ -85,13 +86,13 @@ class Resultaat:
     pomp_invoer: str = "per woning"
     woningen: float = 0.0           # alle woningen in de buurt
     wp_aandeel_huidig: float = 0.0  # % woningen met nu al een warmtepomp
-    mt_opwek: str = MT_OPWEK[0]
+    mt_opwek: str = MT_STANDAARD
     gas_pct: float = 0.0       # % van de piekvraag uit de gasgestuurde piek- en backupvoorziening
     piek_warmte_kw: float = 0.0  # piekvraag warmte van het net op deze dag
 
 
 def bereken(b, p, dag, prof, oplossing: str | None = None, wp_vorm: str = "vlak",
-            pomp_invoer: str = "per woning", mt_opwek: str = MT_OPWEK[0]) -> Resultaat:
+            pomp_invoer: str = "per woning", mt_opwek: str = MT_STANDAARD) -> Resultaat:
     oplossing = oplossing or b["warmteoplossing"]
     N = float(n_woningen(oplossing, b))
     T = np.full(len(dag), p["t_ref"])  # aanname: constante buitentemperatuur op de referentiedag

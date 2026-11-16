@@ -243,7 +243,7 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
                         "De COP hangt lineair af van de nettemperatuur (vaste term + per graad × temperatuur); later "
                         "beter: Carnot × rendement met de aanvoertemperatuur in de woning. Daarbij een vast "
                         "pompvermogen (per woning of als totaal voor de buurt), los van de warmtevraag.",
-                 "MT": "Geen warmtepomp per woning. Warmteproductie buiten beschouwing: alleen een vast "
+                 "MT": "Geen warmtepomp per woning. Warmteproductie is buiten de buurt: alleen een vast "
                        "pompvermogen (per woning of als totaal voor de buurt)." if r.mt_opwek not in k3_warmtepomp.MT_COP
                        else f"De basislast komt uit {r.mt_opwek}, op 70 °C gebracht met collectieve warmtepompen in "
                             "combinatie met WKO (één systeem-COP per bron). Een gasgestuurde piek- en backupvoorziening "
@@ -266,10 +266,12 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
                 "gekozen opwek.",
          bron="stappen 1 tot en met 5, voor elke warmteoplossing")
     fig = None
+    n = r.N if r.N > 0 else 1.0  # per woning (genormaliseerd); zonder extra woningen ("geen") blijft het 0
+    eenh = "kW per woning" if r.N > 0 else "kW"
     if r.band:
-        fig = lijn({f"{n}{' (gebruikt)' if n == r.vorm_bron else ''}": P for n, (_, P) in r.band.items()},
-                   [k if n == r.vorm_bron else MUTED for n in r.band], "kW", H_GROOT, fmt=",.0f")
-    p_en_checks(7, r.P, k, r.checks, fig=fig)
+        fig = lijn({f"{nm}{' (gebruikt)' if nm == r.vorm_bron else ''}": P / n for nm, (_, P) in r.band.items()},
+                   [k if nm == r.vorm_bron else MUTED for nm in r.band], eenh, H_GROOT, fmt=",.2f")
+    p_en_checks(7, r.P / n, k, r.checks, fig=fig, eenheid=eenh, dec=2)
     _vast(3)
 
 
@@ -283,7 +285,7 @@ def kaart4(r: k4_laden_auto.Resultaat, p, tag, scenario: str, jaar: int) -> None
          reken=[f"prognose {scenario}, {jaar}: {nl(r.N)} EV's"],
          uitleg="Het totale aantal elektrische personenauto's in de buurt volgens de gekozen prognose (zijbalk: laag, "
                 f"middel of hoog). Het thuisladen van de huidige EV's haalt tab {kn(1)} van het netto verbruik af, "
-                "zodat het niet dubbel telt. Voorlopig rekenen we met 2025; een keuze voor 2035 en 2050 volgt.",
+                "zodat het niet dubbel telt. Het zichtjaar (zijbalk) kiest de prognosekolom en de standaardwaarden van de invoer.",
          bron="prognose per buurt in de buurttabel (scenario's laag, middel, hoog; nu mock)")
     e_tot = r.N * r.E
     stap(2, "Laadenergie op deze dag", nl(e_tot), "kWh", tag=tag("ev_e_dag"),
@@ -498,7 +500,7 @@ def stapeling(r: stapeling_model.Resultaat, kleuren: list[str]) -> None:
                 "piek.",
          bron="de profielen van de tabs")
     p_en_checks(4, r.P_tot, KLEUR[0], r.checks, naam="Profiel van de buurt",
-                fig=gestapeld(r.P, kleuren, totaal=r.P_tot, grens=("95 %-grens", r.P95)))
+                fig=gestapeld(r.P, kleuren, totaal=r.P_tot))
 
 
 def kaart8(r: k8_batterij.Resultaat, p, tag) -> None:
