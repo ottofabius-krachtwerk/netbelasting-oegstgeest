@@ -93,8 +93,9 @@ buurten = pd.DataFrame([{
     # mock: bruto jaaropwek woningen (kWh): Zonnedakje gemeente-kWp naar aandeel woningen × 875 kWh/kWp (1.213 kWh per woning)
     "zon_kwh_jaar": round(round(1500 * 15_648 / 11_286) * 875),
     "gas_m3_per_woning": 960,  # Klimaatmonitor: gemiddelde Oegstgeest, alle woningen
-    # mock: resterende dakpotentie zon, alle daken in de buurt (kWh/jaar) = 3 × huidige opwek woningen; Zonnedakje volgt
-    "zon_potentie_kwh_jaar": 3 * round(round(1500 * 15_648 / 11_286) * 875),
+    # mock: resterende dakpotentie zon (kWh/jaar) op woningen = 2 × en op niet-woningen = 1 × huidige opwek woningen
+    "zon_potentie_woningen_kwh_jaar": 2 * round(round(1500 * 15_648 / 11_286) * 875),
+    "zon_potentie_overig_kwh_jaar": round(round(1500 * 15_648 / 11_286) * 875),
     # mock: prognose totaal aantal EV's in de buurt per scenario en jaar (2025: 632 BEV gemeente naar aandeel woningen)
     "ev_laag_2025": 84,
     "ev_laag_2035": 350,

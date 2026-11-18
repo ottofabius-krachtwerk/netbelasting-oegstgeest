@@ -16,7 +16,7 @@ EV_JAREN = [2025, 2035, 2050]
 LOG_TYPEN = ["bestel", "truck"]
 SCHEMA = {
     "buurten.csv": ["buurt_code", "buurt_naam", *[f"woningen_{k}" for k in WONINGTYPEN.values()], "huishoudens",
-                    "zon_kwh_jaar", "gas_m3_per_woning", "zon_potentie_kwh_jaar", "zon_bedrijven_kwh_jaar",
+                    "zon_kwh_jaar", "gas_m3_per_woning", "zon_potentie_woningen_kwh_jaar", "zon_potentie_overig_kwh_jaar", "zon_bedrijven_kwh_jaar",
                     *[f"ev_{s}_{j}" for s in EV_SCENARIOS for j in EV_JAREN],
                     *[f"{t}_{s}_{j}" for t in LOG_TYPEN for s in EV_SCENARIOS for j in EV_JAREN]],
     "bedrijfstakken.csv": ["bedrijfstak", "e_jaar_kwh_gemeente"],

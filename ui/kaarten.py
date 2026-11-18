@@ -38,13 +38,15 @@ def meta(kaart: int) -> tuple[str, str]:
         4: ("prognose aantal EV's per buurt (scenario laag, middel of hoog; totaal) · aandeel publiek laden · aandeel slim laden thuis en "
             "publiek · laadenergie per auto · laadverloop en spreiding per laadpunt, thuis en publiek, standaard en slim",
             "invoer zijbalk · ElaadNL gegenereerde laadpuntprofielen 2025 · slim thuis: aanname"),
-        7: ("resterende dakpotentie zon per buurt (alle daken) · benutting in % (alleen de toename) · instraling op deze "
-            "dag en per jaar",
-            "Zonnedakje (resterende dakpotentie) · KNMI station 215 (instraling)"),
+        7: ("jaaropwek huidige zon op woningen en niet-woningen (vaste basis) · resterende dakpotentie zon per buurt, "
+            "woningen en niet-woningen · benutting in %, apart voor woningen en niet-woningen (extra) · instraling op "
+            "deze dag en per jaar",
+            "Zonnedakje (huidige opwek) · Bewerkte data per buurt 1-1-2025 (resterende dakpotentie) · KNMI station 215 "
+            "(instraling)"),
         6: (f"verbruik per bedrijfstak (gemeente) · aantal buurten · werkdagen · groei niet-huishoudelijk (MWh per jaar) · "
-            f"zon op overige daken, verloop gelijk aan tab {t(7)}",
+            f"alleen verbruik; zon van bedrijven in tab {t(7)}",
             "Klimaatmonitor (elektriciteitsverbruik per bedrijfstak, 36 GWh in 2024) · CBS wijk- en buurtkaart 2025 · "
-            "Zonnedakje (overige daken) · verloop verbruik: vlak, alleen werkdagen (aanname)"),
+            "verloop verbruik: vlak, alleen werkdagen (aanname)"),
         3: ("woningen per buurt · aandeel woningen met nu al een warmtepomp (alleen de toename telt hier) · gasverbruik "
             "per woning · warmteoplossing en isolatie per buurt · graaddagen · verloop · COP · "
             "temperatuur en pompvermogen warmtenet · warmtebron ZLT-net (aquathermie TEO/TEA, ondiepe geothermie, of buiten "
@@ -53,15 +55,15 @@ def meta(kaart: int) -> tuple[str, str]:
             "Klimaatmonitor (gas per woningtype, woningen) · KNMI station 215 (graaddagen 2025) · "
             "buitentemperatuur: aanname −10 °C · verloop: vlak tot gemeten aggregaatprofiel warmtepompen (mock) · "
             "COP: open"),
-        1: (f"woningen en netto verbruik per woningtype · NEDU-profiel · jaaropwek huidige zon bij woningen en opwek "
-            f"op deze dag (rekenwijze tab {t(7)}) · huidige warmtepompen en EV's zitten in het netto verbruik",
+        1: (f"woningen en netto verbruik per woningtype · jaaropwek huidige zon bij woningen (alleen voor netto naar "
+            f"bruto; de opwek zelf staat in tab {t(7)}) · NEDU-profiel · huidige warmtepompen en EV's zitten in het netto "
+            "verbruik",
             "CBS (woningen per woningtype per buurt) · Klimaatmonitor (netto levering per woningtype, 2025) · NEDU "
-            "standaardprofielen elektriciteit 2025 (E1A_AZI_A) · Zonnedakje (jaaropwek zon bij woningen) · KNMI station 215 "
-            "(instraling)"),
+            "standaardprofielen elektriciteit 2025 (E1A_AZI_A) · Zonnedakje (jaaropwek zon bij woningen)"),
         8: (f"woningen · adoptiegraad · capaciteit en vermogen per batterij · rendement · batterijmodus · uit tab {t(1)}: "
             f"last per woning · uit tab {t(7)}: zon per kWp · day-ahead prijs",
             "open (Essent batterijwaardering, literatuur, NL Flex) · day-ahead prijs: EPEX NL, gemiddelde 5 koudste "
             "werkdagen winter 2025/26 (Energy Quantified)"),
-        9: ("profielen uit alle tabs (1 tot en met 8)",
+        9: (f"profielen uit alle tabs (1 tot en met 8); verbruik min de opwek uit tab {t(7)} geeft het netto profiel",
             "geen eigen bronnen"),
     }[kaart]

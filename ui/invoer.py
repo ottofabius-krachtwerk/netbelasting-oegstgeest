@@ -48,7 +48,9 @@ PER_BUURT = {
     "wp_aandeel_huidig": Veld(3, "Woningen met nu al een warmtepomp",
                               "% van alle woningen; die gaan niet nog eens over", 0, 0, 100, 1),
     "isolatie_reductie": Veld(3, "Isolatie", "% minder warmtevraag per woning dan nu", 0, 0, 80, 1),
-    "zon_benutting_pct": Veld(7, "Extra zon", "% van de resterende dakpotentie, alle daken in de buurt", 0, 0, 50, 1),
+    "zon_benutting_woningen_pct": Veld(7, "Extra zon woningen", "% van de resterende dakpotentie op woningen", 0, 0, 50, 1),
+    "zon_benutting_overig_pct": Veld(7, "Extra zon niet-woningen", "% van de resterende dakpotentie op niet-woningen "
+                                     "(overige daken)", 0, 0, 50, 1),
 }
 WARMTEOPLOSSING = "geen"  # standaard per buurt in zichtjaar 2025
 EV_SCENARIO = "middel"  # standaard prognose voor het aantal EV's (laag, middel of hoog), voor alle buurten
@@ -68,7 +70,8 @@ STANDAARD_PER_JAAR = {
     "groei_niet_huish": {2025: 0, 2035: 3600, 2050: 7200},  # MWh per jaar; ruim 10 en 20 % van 36 GWh
     "bat_adoptie": {2025: 10, 2035: 20, 2050: 35},
     "isolatie_reductie": {2025: 0, 2035: 10, 2050: 20},
-    "zon_benutting_pct": {2025: 0, 2035: 20, 2050: 40},
+    "zon_benutting_woningen_pct": {2025: 0, 2035: 20, 2050: 40},
+    "zon_benutting_overig_pct": {2025: 0, 2035: 20, 2050: 40},
 }
 # De warmteoplossing wisselt bewust niet mee met het zichtjaar (blijft de eigen keuze per buurt).
 

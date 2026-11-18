@@ -1,14 +1,13 @@
 """Kaart 6: MKB en grootverbruik. Per bedrijfstak: gemeenteverbruik ÷ buurten ÷ werkdagen, vlak over de dag.
 
-Elke werkdag hetzelfde verbruik; groei (MWh per jaar, gemeente) gaat op dezelfde manier. Zon van bedrijven (overige
-daken) volgt de instraling van deze dag, zoals kaart 1 en 7.
+Elke werkdag hetzelfde verbruik; groei (MWh per jaar, gemeente) gaat op dezelfde manier. Alleen verbruik: de zon van
+bedrijven (overige daken) staat in kaart 7.
 """
 from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
 
-from model import k7_zon
 from model.common import TOL, Check, nl, p_kw
 
 
@@ -21,15 +20,13 @@ class Resultaat:
     checks: list[Check]
 
 
-def bereken(b, p, dag, bedrijfstakken: pd.DataFrame) -> Resultaat:
+def bereken(p, dag, bedrijfstakken: pd.DataFrame) -> Resultaat:
     n = len(dag)
     aandeel = 1 / p["buurten_gemeente"]  # voorlopig: elke buurt evenveel
     d_werkdag = 1 / p["werkdagen_jaar"]
     vlak = np.full(n, 1 / n)
     rijen = [(r["bedrijfstak"], 1, float(r["e_jaar_kwh_gemeente"]), d_werkdag, vlak) for _, r in bedrijfstakken.iterrows()]
     rijen.append(("Groei", 1, p["groei_niet_huish"] * 1000, d_werkdag, vlak))
-    _, _, f_zon, v_zon = k7_zon.opwek_dag(p, dag)
-    rijen.append(("Opwek (zon bedrijven)", -1, float(b["zon_bedrijven_kwh_jaar"]) / aandeel, f_zon, v_zon))
     tabel, V, P = [], {}, {}
     for sector, teken, e_gem, d, v in rijen:
         e_jaar = e_gem * aandeel

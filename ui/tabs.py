@@ -10,7 +10,7 @@ from model import stapeling as stapeling_model
 from model.common import nl
 from model.data import WONINGTYPEN
 from ui.charts import H_GROOT, KLEUR, MUTED, TIJD, balans, gestapeld, lijn, staven, waterval
-from ui.kaarten import kleur, kn, meta
+from ui.kaarten import kaartnaam, kleur, kn, meta
 from ui.stappen import badge, kop, p_en_checks, stap
 
 VERLOOP = "% van de dag per kwartier"
@@ -68,11 +68,11 @@ def _formule(zin: str, symbolen: str) -> None:
                 unsafe_allow_html=True)
 
 
-def kaart1(r: k1_basis.Resultaat, p, dag, tag) -> None:
+def kaart1(r: k1_basis.Resultaat, p, tag) -> None:
     k = kleur(1)
     _kop(1)
-    _formule("Profiel = verbruik van de woningen op deze dag − opwek van de huidige zonnepanelen op deze dag",
-             "P[t] = 4 × N × E × v[t] + 4 × E_zon,jaar × f_zon × v_zon[t], Σ v = +1, Σ v_zon = −1")
+    _formule("Profiel = woningen × huishoudelijk verbruik per woning op deze dag × verloop over de dag (bruto, zonder "
+             f"zon; alle opwek staat in tab {kn(7)})", "P[t] = 4 × N × E × v[t], Σ v = +1")
     t = r.types
     # A · jaarverbruik
     stap(1, "Aantal woningen", nl(r.N), "woningen", tag=tag("buurten"),
@@ -97,13 +97,13 @@ def kaart1(r: k1_basis.Resultaat, p, dag, tag) -> None:
               "het bruto verbruik in stap 4 te hoog bij woningen die meer opwekken dan ze verbruiken; te controleren "
               "met de opwek per woningtype uit Zonnedakje.")
     stap(3, "Bruto zonopwek huidige panelen per jaar", nl(r.e_zon_bruto / 1e3), "MWh/jaar", tag=tag("buurten"),
-         uitleg="Alle opwek van de huidige panelen bij woningen, ook wat de woningen zelf gebruiken. Extra panelen "
-                f"staan in tab {kn(7)}.",
+         uitleg="Alle opwek van de huidige panelen bij woningen, ook wat de woningen zelf gebruiken. Dit jaargetal is "
+                "alleen nodig om van netto naar bruto verbruik te gaan; de opwek zelf (huidig en extra) staat als "
+                f"profiel in tab {kn(7)}.",
          bron="Zonnedakje (jaaropwek per pand, alleen woningen)",
          noot="Zonnedakje geeft alle daken; hier tellen alleen woningen (BAG-gebruiksdoel woonfunctie, staat al in "
               "Zonnedakje). Gemengde panden: verdelen naar gebruiksoppervlakte per functie of toewijzen aan de "
-              f"grootste functie (keuze open). Waar de opwek op de overige daken meetelt, is ook nog open "
-              f"(bijvoorbeeld tab {kn(6)}). Zelfde jaar als het netto "
+              f"grootste functie (keuze open). De opwek op de overige daken staat in tab {kn(7)}. Zelfde jaar als het netto "
               "verbruik (2025) en de opwek van geplaatste panelen, niet het dakpotentieel.")
     thuis = 100 - p["publiek_aandeel"]
     stap(4, "Huishoudelijk jaarverbruik", nl(r.e_jaar_buurt / 1e3), "MWh/jaar",
@@ -114,8 +114,8 @@ def kaart1(r: k1_basis.Resultaat, p, dag, tag) -> None:
                 f"thuisladen = {nl(r.e_jaar_buurt / 1e3)} MWh",
                 f"per woning: {nl(r.e_jaar_buurt / 1e3)} MWh ÷ {nl(r.N)} woningen = {nl(r.e_jaar)} kWh"],
          uitleg="In het netto verbruik is de zon over het hele jaar al afgetrokken. De volledige bruto opwek komt er "
-                "weer bij; zo ontstaat het werkelijke verbruik. De opwek gaat er in stap 8 weer af, met het verloop "
-                f"van deze winterdag. Het thuisladen van de huidige EV's (stand 2025) gaat eraf, omdat tab {kn(4)} "
+                "weer bij; zo ontstaat het werkelijke verbruik. De opwek van deze winterdag telt in tab "
+                f"{kn(7)} en gaat er pas in de stapeling (tab 9) af. Het thuisladen van de huidige EV's (stand 2025) gaat eraf, omdat tab {kn(4)} "
                 "alle EV's rekent met hun eigen laadprofiel; aandeel thuis = 100 % min het aandeel publiek laden.",
          bron=f"stap 2 en 3 · huidige EV's: stand 2025 in de buurttabel · laadenergie en aandeel publiek: tab {kn(4)}")
     # B · verbruik op deze dag
@@ -129,39 +129,12 @@ def kaart1(r: k1_basis.Resultaat, p, dag, tag) -> None:
          bron="NEDU standaardprofielen elektriciteit 2025 (E1A_AZI_A, 18-02-2025)",
          noot="bij NEDU nagaan hoeveel woningen met warmtepomp of EV in de steekproef voor E1A_AZI_A zaten (2021 tot "
               "2023). Bij een groot aandeel is de fractie voor puur huishoudelijk verbruik lager.")
-    stap(6, "Verbruik op deze dag", nl(r.N * r.E), "kWh", tag=tag("nedu_e1a"),
-         fig=lijn({"verbruik": r.P_verbruik}, [MUTED], "kW", fmt=",.0f", vlak=True),
-         reken=[f"{nl(r.e_jaar)} kWh × {nl(r.d * 100, 3)} % = {nl(r.E, 2)} kWh per woning",
-                f"{nl(r.N)} woningen × {nl(r.E, 2)} kWh = {nl(r.N * r.E)} kWh",
-                f"hoogste kwartier {_hoogste(r.v)}: {nl(r.v.max() * 100, 2)} % van de dag → "
-                f"4 × {nl(r.N * r.E)} kWh × {nl(r.v.max() * 100, 2)} % = {nl(r.P_verbruik.max())} kW"],
-         uitleg="Het verloop volgt hetzelfde NEDU-profiel (E1A_AZI_A) per kwartier.",
-         bron="NEDU standaardprofielen elektriciteit 2025 (E1A_AZI_A, 18-02-2025)")
-    # C · opwek op deze dag
-    e_zon_dag = r.e_zon_bruto * r.f_zon
-    i_ref = r.f_zon * p["i_jaar"]
-    stap(7, "Deel van de jaaropwek op deze dag", nl(r.f_zon * 100, 3), "%", tag=tag("I", "i_jaar"),
-         fig=lijn({"instraling": dag["I"].to_numpy(float)}, [kleur(7)], "W/m²", fmt=",.0f"),
-         reken=[f"{nl(i_ref, 2)} kWh/m² ÷ {nl(p['i_jaar'])} kWh/m² = {nl(r.f_zon * 100, 3)} %",
-                f"{nl(r.f_zon * 100, 3)} % ÷ {nl(100 / 365, 3)} % = {nl(r.f_zon * 365, 2)} × een gemiddelde dag"],
-         uitleg="Instraling op deze dag ÷ instraling per jaar: de opwek volgt de gemeten zon van deze winterdag, niet "
-                "het jaargemiddelde.",
-         bron="KNMI station 215 (instraling 18-02-2025; instraling per jaar)")
-    i_zon = int(np.argmin(r.P_zon))
-    stap(8, "Opwek huidige panelen op deze dag", nl(e_zon_dag), "kWh", tag=tag("buurten", "I"),
-         fig=lijn({"opwek": r.P_zon}, [kleur(7)], "kW", fmt=",.0f", vlak=True),
-         reken=[f"{nl(r.e_zon_bruto / 1e3)} MWh × {nl(r.f_zon * 100, 3)} % = {nl(e_zon_dag)} kWh",
-                *([f"meeste opwek {TIJD[i_zon]}: {nl(-r.P_zon[i_zon])} kW"] if r.P_zon[i_zon] < 0 else [])],
-         uitleg="Het verloop volgt de instraling per kwartier; negatief omdat het opwek is. Zelfde rekenwijze als "
-                f"tab {kn(7)}.",
-         bron="Zonnedakje (jaaropwek) · KNMI station 215 (instraling 18-02-2025)")
-    # D · netto profiel
-    i_max, i_min = int(np.argmax(r.P)), int(np.argmin(r.P))
-    reken = [f"{w} {TIJD[i]}: {nl(r.P_verbruik[i])} kW verbruik − {nl(-r.P_zon[i])} kW opwek = {nl(r.P[i])} kW"
-             for w, i in (("hoogste", i_max), ("laagste", i_min))]
-    reken.append(f"dag: {nl(r.N * r.E)} kWh verbruik − {nl(e_zon_dag)} kWh opwek = {nl(r.e_dag)} kWh")
-    fig = balans(r.P_verbruik, r.P_zon, r.P, [MUTED, kleur(7), k], namen=("verbruik (stap 6)", "opwek (stap 8)", "netto"))
-    p_en_checks(9, r.P, k, r.checks, naam="Netto profiel: verbruik − opwek", fig=fig, reken=reken)
+    p_en_checks(6, r.P, k, r.checks, naam="Huishoudelijk verbruik over de dag",
+                reken=[f"{nl(r.e_jaar)} kWh × {nl(r.d * 100, 3)} % = {nl(r.E, 2)} kWh per woning op deze dag",
+                       f"{nl(r.N)} woningen × {nl(r.E, 2)} kWh = {nl(r.e_dag)} kWh",
+                       f"hoogste kwartier {_hoogste(r.v)}: {nl(r.v.max() * 100, 2)} % van de dag → "
+                       f"4 × {nl(r.e_dag)} kWh × {nl(r.v.max() * 100, 2)} % = {nl(r.P.max())} kW",
+                       "groei van het huishoudelijk verbruik: het hele profiel schaalt mee (zelfde verloop)"])
     _vast(1)
 
 
@@ -366,15 +339,24 @@ def kaart4(r: k4_laden_auto.Resultaat, p, tag, scenario: str, jaar: int) -> None
 def kaart7(r: k7_zon.Resultaat, p, tag) -> None:
     k = kleur(7)
     _kop(7)
-    _formule("Profiel = resterende dakpotentie × benutting × deel van de jaaropwek op deze dag × verloop over de dag "
-             "(negatief: opwek)",
+    _formule("Profiel = (huidige + extra opwek, op woningen en niet-woningen) × deel van de jaaropwek op deze dag × "
+             "verloop over de dag (negatief: opwek)",
              "P[t] = 4 × N × E × v[t], Σ v = −1")
-    stap(1, "Extra jaaropwek zon in de buurt", nl(r.N / 1e3), "MWh/jaar", tag=tag("buurten"),
-         reken=[f"{nl(r.potentie / 1e3)} MWh resterende potentie × {nl(r.benutting)} % = {nl(r.N / 1e3)} MWh"],
-         uitleg="Alleen de toename: een deel van de resterende dakpotentie op alle daken in de buurt, woningen en "
-                f"bedrijven (zijbalk, 0 tot 50 %). De huidige zon staat in tab {kn(1)} (woningen) en tab {kn(6)} "
-                "(bedrijven).",
-         bron="Zonnedakje (resterende dakpotentie, alle daken in de buurt) · benutting: invoer zijbalk")
+    d = r.delen
+    stap(1, "Jaaropwek zon in de buurt", nl(r.N / 1e3), "MWh/jaar", tag=tag("buurten", "zon_benutting_woningen_pct", "zon_benutting_overig_pct"),
+         extra=[(n, f"{nl(e / 1e3)} MWh") for n, e in d.items()],
+         reken=[*(f"extra {s}: {nl(r.potentie[s] / 1e3)} MWh resterende potentie × {nl(r.benutting[s])} % = "
+                  f"{nl(d['extra ' + s] / 1e3)} MWh" for s in r.potentie),
+                " + ".join(nl(e / 1e3) for e in d.values()) + f" = {nl(r.N / 1e3)} MWh"],
+         uitleg="Alle zon in de buurt op één plek. De huidige opwek op woningen en op niet-woningen (overige daken) is "
+                "een vaste basis uit de data. Extra is een deel van de resterende dakpotentie, apart voor woningen en "
+                f"niet-woningen (benutting in de zijbalk, 0 tot 50 %). Tab {kn(1)} (woningen) en tab {kn(6)} "
+                "(bedrijven) bevatten alleen verbruik.",
+         bron="Zonnedakje (jaaropwek huidige panelen bij woningen en op overige daken) · Bewerkte data per buurt "
+              "1-1-2025 (mogelijkheid extra pv bij woningen en bij niet-woningen) · benutting: invoer zijbalk",
+         noot="huidige opwek niet-woningen = Zonnedakje voor alle overige panden: alle daken min de woningen (nu nog mock), "
+              "zodat alle zonne-energie in de buurt één keer meetelt. Controle toevoegen: opwek woningen + overige "
+              "panden = totaal Zonnedakje voor de buurt.")
     stap(2, "Deel van de jaaropwek op deze dag", nl(r.E * 100, 3), "%",
          lijn({"instraling": r.I}, [k], "W/m²", fmt=",.0f"), tag=tag("I", "i_jaar"),
          reken=[f"{nl(r.i_ref, 2)} kWh/m² ÷ {nl(p['i_jaar'])} kWh/m² = {nl(r.E * 100, 3)} %",
@@ -382,11 +364,13 @@ def kaart7(r: k7_zon.Resultaat, p, tag) -> None:
          uitleg="Instraling op deze dag ÷ instraling per jaar (KNMI, horizontaal vlak).",
          bron="KNMI station 215 (instraling 18-02-2025; instraling per jaar)")
     i_zon = int(np.argmin(r.P))
-    stap(3, "Extra opwek op deze dag", nl(r.N * r.E), "kWh", tag=tag("buurten", "I"),
-         fig=lijn({"opwek": r.P}, [k], "kW", fmt=",.0f", vlak=True),
-         reken=[f"{nl(r.N / 1e3)} MWh × {nl(r.E * 100, 3)} % = {nl(r.N * r.E)} kWh",
+    stap(3, "Opwek op deze dag", nl(r.N * r.E), "kWh", tag=tag("buurten", "I"),
+         fig=gestapeld(r.P_delen, KLEUR[:len(r.P_delen)], totaal=r.P),
+         reken=[*(f"{n}: {nl(e / 1e3)} MWh × {nl(r.E * 100, 3)} % = {nl(e * r.E)} kWh" for n, e in r.delen.items()),
+                f"totaal: {nl(r.N / 1e3)} MWh × {nl(r.E * 100, 3)} % = {nl(r.N * r.E)} kWh",
                 *([f"meeste opwek {TIJD[i_zon]}: {nl(-r.P[i_zon])} kW"] if r.P[i_zon] < 0 else [])],
-         uitleg="Het verloop volgt de gemeten instraling per kwartier; negatief omdat het opwek is.",
+         uitleg="Het verloop volgt de gemeten instraling per kwartier; negatief omdat het opwek is. Alle panelen "
+                "volgen hetzelfde verloop (aanname: geen verschil in ligging).",
          bron="KNMI station 215 (instraling per uur, 18-02-2025)")
     p_en_checks(4, r.P, k, r.checks)
     _vast(7)
@@ -467,10 +451,9 @@ def kaart5(r: k5_logistiek.Resultaat, p, tag) -> None:
 def kaart6(r: k6_mkb.Resultaat, p, tag) -> None:
     df = r.sectoren
     verbruik = df[df["teken"] > 0]
-    zon = df[df["teken"] < 0].iloc[0]
     _kop(6)
-    _formule("Profiel = per bedrijfstak: jaarverbruik in de buurt ÷ werkdagen, vlak over de dag; opwek van bedrijven "
-             "negatief", "P[t] = Σ 4 × E_s × v_s[t], E_s = E_gemeente,s ÷ buurten ÷ werkdagen")
+    _formule("Profiel = per bedrijfstak: jaarverbruik in de buurt ÷ werkdagen, vlak over de dag (alleen verbruik; de zon "
+             f"van bedrijven staat in tab {kn(7)})", "P[t] = Σ 4 × E_s × v_s[t], E_s = E_gemeente,s ÷ buurten ÷ werkdagen")
     stap(1, "Jaarverbruik per bedrijfstak in de buurt", nl(verbruik["e_jaar"].sum() / 1e3), "MWh/jaar",
          tag=tag("bedrijfstakken", "buurten_gemeente", "groei_niet_huish"),
          reken=[f"{r.sector}: {nl(r.e_gemeente / 1e3)} MWh ÷ {nl(p['buurten_gemeente'])} buurten = {nl(r.e_jaar / 1e3)} MWh"
@@ -489,19 +472,7 @@ def kaart6(r: k6_mkb.Resultaat, p, tag) -> None:
          uitleg="Elke werkdag hetzelfde verbruik en in het weekend niets; deze dinsdag krijgt dus een werkdagdeel. Over "
                 "de dag nemen we een vlak verbruik aan.",
          bron="aanname (vlak, alleen werkdagen) · kalender 2025")
-    stap(3, "Opwek zon van bedrijven op deze dag", nl(zon["E"]), "kWh", tag=tag("buurten", "I", "i_jaar"),
-         fig=lijn({"opwek": r.P[zon["sector"]]}, [kleur(7)], "kW", fmt=",.0f", vlak=True),
-         reken=[f"{nl(zon['e_jaar'] / 1e3)} MWh × {nl(zon['d'] * 100, 3)} % = {nl(zon['E'])} kWh"],
-         uitleg=f"Jaaropwek op de overige daken × deel van de jaaropwek op deze dag, met het verloop van de instraling, "
-                f"net als in tab {kn(1)} en {kn(7)}.",
-         bron="Zonnedakje (alle daken min woningen) · KNMI station 215 (instraling)",
-         noot=f"opwek van bedrijven = Zonnedakje voor alle overige panden: alle daken min de woningen uit tab {kn(1)} "
-              "(nu nog mock), zodat alle zonne-energie in de buurt één keer meetelt. Controle toevoegen: opwek woningen "
-              "+ overige panden = totaal Zonnedakje voor de buurt.")
-    P_verbruik = np.sum([r.P[s] for s in verbruik["sector"]], axis=0)
-    fig = balans(P_verbruik, r.P[zon["sector"]], r.P_tot, [MUTED, kleur(7), kleur(6)],
-                 namen=("verbruik (stap 2)", "opwek (stap 3)", "netto"))
-    p_en_checks(4, r.P_tot, kleur(6), r.checks, naam="Netto profiel: verbruik − opwek", fig=fig)
+    p_en_checks(3, r.P_tot, kleur(6), r.checks, naam="Verbruik over de dag")
     _vast(6)
 
 
@@ -528,7 +499,20 @@ def stapeling(r: stapeling_model.Resultaat, kleuren: list[str]) -> None:
          uitleg="Hoogste kwartier van elke tab apart; bij zon de grootste opwek. Vallen die samen, dan stapelt de "
                 "piek.",
          bron="de profielen van de tabs")
-    p_en_checks(4, r.P_tot, KLEUR[0], r.checks, naam="Profiel van de buurt",
+    opwek = r.P[kaartnaam(7)]
+    P_verbruik = r.P_tot - opwek
+    i_min = int(np.argmin(r.P_tot))
+    stap(4, "Netto profiel: verbruik − opwek", nl(r.P_tot.sum() / 4), "kWh netto op deze dag",
+         fig=balans(P_verbruik, opwek, r.P_tot, [MUTED, kleur(7), KLEUR[0]],
+                    namen=("verbruik (alle tabs behalve zon)", f"opwek (tab {kn(7)})", "netto")),
+         reken=[f"{w} {TIJD[x]}: {nl(P_verbruik[x])} kW verbruik − {nl(-opwek[x])} kW opwek = {nl(r.P_tot[x])} kW"
+                for w, x in (("hoogste", i), ("laagste", i_min))]
+               + [f"dag: {nl(P_verbruik.sum() / 4)} kWh verbruik − {nl(-opwek.sum() / 4)} kWh opwek = "
+                  f"{nl(r.P_tot.sum() / 4)} kWh"],
+         uitleg=f"Hier komen verbruik en opwek voor het eerst samen. Verbruik is de som van alle tabs behalve tab {kn(7)} "
+                f"(de thuisbatterij telt mee, met laden positief); opwek is alle zon uit tab {kn(7)}, huidig en extra.",
+         bron="de profielen van de tabs")
+    p_en_checks(5, r.P_tot, KLEUR[0], r.checks, naam="Profiel van de buurt",
                 fig=gestapeld(r.P, kleuren, totaal=r.P_tot))
 
 

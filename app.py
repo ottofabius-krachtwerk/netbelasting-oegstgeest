@@ -152,7 +152,7 @@ with st.sidebar:
 
 dag, prof = data.dag, data.profielen
 tabs.VASTE_WAARDEN = data.parameters
-r1 = k1_basis.bereken(b, p, dag, prof)
+r1 = k1_basis.bereken(b, p, prof)
 
 datum = pd.Timestamp(dag["datum"].iloc[0])
 kop = f"#### Netbelasting · {b['buurt_naam']} · {['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'][datum.weekday()]} {datum:%d-%m-%Y}"
@@ -168,7 +168,7 @@ r4 = k4_laden_auto.bereken(b, p, prof)
 r7 = k7_zon.bereken(b, p, dag)
 r2 = k2_koken.bereken(b, p, prof)
 r5 = k5_logistiek.bereken(b, p, prof)
-r6 = k6_mkb.bereken(b, p, dag, data.bedrijfstakken)
+r6 = k6_mkb.bereken(p, dag, data.bedrijfstakken)
 
 if t[3].open:
     with t[3]:
@@ -181,7 +181,7 @@ if t[7].open:
         tabs.kaart7(r7, p, _status)
 if t[1].open:
     with t[1]:
-        tabs.kaart1(r1, p, dag, _status)
+        tabs.kaart1(r1, p, _status)
 if t[2].open:
     with t[2]:
         tabs.kaart2(r2, _status)
@@ -191,7 +191,7 @@ if t[5].open:
 if t[6].open:
     with t[6]:
         tabs.kaart6(r6, p, _status)
-r8 = k8_batterij.bereken(b, p, dag, r1.P_verbruik / r1.N, r7.per_kwp, bat_modus)
+r8 = k8_batterij.bereken(b, p, dag, r1.P / r1.N, r7.per_kwp, bat_modus)
 
 # Stapeling van alle tabs, in tabvolgorde
 alle = {1: r1, 2: r2, 3: r3, 4: r4, 5: r5, 6: r6, 7: r7, 8: r8}
