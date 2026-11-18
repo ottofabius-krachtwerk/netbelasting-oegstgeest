@@ -115,9 +115,9 @@ def kaart1(r: k1_basis.Resultaat, p, dag, tag) -> None:
                 f"per woning: {nl(r.e_jaar_buurt / 1e3)} MWh ÷ {nl(r.N)} woningen = {nl(r.e_jaar)} kWh"],
          uitleg="In het netto verbruik is de zon over het hele jaar al afgetrokken. De volledige bruto opwek komt er "
                 "weer bij; zo ontstaat het werkelijke verbruik. De opwek gaat er in stap 8 weer af, met het verloop "
-                f"van deze winterdag. Het thuisladen van de huidige EV's (prognose 2025) gaat eraf, omdat tab {kn(4)} "
+                f"van deze winterdag. Het thuisladen van de huidige EV's (stand 2025) gaat eraf, omdat tab {kn(4)} "
                 "alle EV's rekent met hun eigen laadprofiel; aandeel thuis = 100 % min het aandeel publiek laden.",
-         bron=f"stap 2 en 3 · huidige EV's: prognose 2025 in de buurttabel · laadenergie en aandeel publiek: tab {kn(4)}")
+         bron=f"stap 2 en 3 · huidige EV's: stand 2025 in de buurttabel · laadenergie en aandeel publiek: tab {kn(4)}")
     # B · verbruik op deze dag
     stap(5, "Deel van het jaarverbruik op deze dag", nl(r.d * 100, 3), "%", tag=tag("nedu_e1a"),
          reken=[f"d = {nl(r.d * 100, 3)} % (som van NEDU E1A_AZI_A over 18-02-2025)",

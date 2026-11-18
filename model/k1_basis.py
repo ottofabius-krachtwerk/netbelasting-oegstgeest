@@ -34,7 +34,7 @@ class Resultaat:
     e_dag: float            # netto dagenergie, kWh
     checks: list[Check]
     e_ev_thuis: float = 0.0  # thuisladen huidige EV's per jaar, kWh
-    ev_huidig: float = 0.0   # huidige EV's in de buurt (prognose 2025)
+    ev_huidig: float = 0.0   # huidige EV's in de buurt (stand 2025)
     netneutraal: float = 0.0  # extra netneutrale woningen: tellen niet mee in N en hebben geen netbelasting
 
 
