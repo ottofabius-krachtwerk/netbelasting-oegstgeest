@@ -11,6 +11,7 @@ from model.common import nl
 from model.data import WONINGTYPEN
 from ui.charts import H_GROOT, KLEUR, MUTED, TIJD, balans, gestapeld, lijn, staven, waterval
 from ui.kaarten import kaartnaam, kleur, kn, meta
+from ui import stappen
 from ui.stappen import badge, kop, p_en_checks, stap
 
 VERLOOP = "% van de dag per kwartier"
@@ -39,7 +40,7 @@ def _getal(x: float) -> str:
 
 def _vast(kaart: int) -> None:
     """Data en aannames van deze tab: niet instelbaar, compact onderaan ter referentie."""
-    if VASTE_WAARDEN is None:
+    if VASTE_WAARDEN is None or stappen.COMPACT:
         return
     df = VASTE_WAARDEN[(VASTE_WAARDEN["kaart"] == kaart) & (VASTE_WAARDEN["rol"] != "invoer")]
     if df.empty:
@@ -63,6 +64,8 @@ def _kop(kaart: int, extra: str = "") -> None:
 
 def _formule(zin: str, symbolen: str) -> None:
     """Rekenregel in gewone taal, met de formule klein erachter."""
+    if stappen.COMPACT:
+        return
     st.markdown(f"<div style='font-size:.9rem;color:#0b0b0b;margin:-.2rem 0 .6rem'>{zin}"
                 f"<span style='font-size:.75rem;color:#898781;margin-left:.6rem'>{symbolen}</span></div>",
                 unsafe_allow_html=True)

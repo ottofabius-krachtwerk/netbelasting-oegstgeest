@@ -5,6 +5,21 @@ import streamlit as st
 from model.common import Check, nl
 from ui.charts import H_GROOT, TIJD, lijn, toon
 
+# Compacte weergave: per tab alleen de bronnen en de grafieken; uitleg, rekenregels, checks en vaste waarden vallen weg.
+# De invoer in de zijbalk blijft gelijk.
+COMPACT = True
+
+
+def _bronregel(bron: str) -> str:
+    return (f"<div style='font-size:.74rem;color:#898781;line-height:1.3;margin:.1rem 0 .2rem'><b>Bron</b> {bron}</div>"
+            if bron else "")
+
+
+def _grafiek(titel: str, fig, bron: str = "", tag: str = "") -> None:
+    """Compact: titel, grafiek en bron in één kader."""
+    with st.container(border=True):
+        st.markdown(f"<div style='font-weight:600'>{titel}{badge(tag)}</div>{_bronregel(bron)}", unsafe_allow_html=True)
+        toon(fig)
 
 
 LABEL = {"mock": ("mock", "#52514e", "#f0efec"), "placeholder": ("placeholder", "#8a4b00", "#fdeccc")}
@@ -22,6 +37,10 @@ def stap(nr: int, titel: str, waarde: str | None = None, eenheid: str = "", fig=
          extra: list[tuple[str, str]] | None = None, tag: str = "bron", uitleg: str = "", bron: str = "",
          reken: list[str] | None = None, noot: str = "") -> None:
     """Eén rekenstap als rij: links titel, uitleg, rekenregels en resultaat, rechts een kleine grafiek."""
+    if COMPACT:  # alleen stappen met een grafiek
+        if fig is not None:
+            _grafiek(titel, fig, bron, tag)
+        return
     with st.container(border=True):
         links, rechts = st.columns([1, 1.6], vertical_alignment="center") if fig is not None else (st.container(), None)
         with links:
@@ -59,6 +78,9 @@ def rekenregels(reken: list[str] | None) -> str:
 
 def p_en_checks(nr: int, P, kleur: str, checks: list[Check], naam: str = "Profiel over de dag", fig=None,
                 reken: list[str] | None = None, noot: str = "", eenheid: str = "kW", dec: int = 0) -> None:
+    if COMPACT:  # alleen het profiel, zonder rekenregels en checks
+        _grafiek(naam, fig if fig is not None else lijn({"profiel": P}, [kleur], eenheid, H_GROOT, fmt=",.1f", vlak=True))
+        return
     links, rechts = st.columns([1.7, 1])
     i_max, i_min = int(np.argmax(P)), int(np.argmin(P))
     with links, st.container(border=True):
@@ -78,6 +100,10 @@ def p_en_checks(nr: int, P, kleur: str, checks: list[Check], naam: str = "Profie
 def kop(invoer: str, bronnen: str, extra: str = "") -> None:
     """Bovenaan een tab: invoer en bronnen. De status van de methodiek staat in de kleur van de tabtitel."""
     eerste = f"{extra}<br>" if extra else ""
+    if COMPACT:
+        st.markdown(f"<div style='margin:-.2rem 0 .7rem;font-size:.82rem;color:#52514e;line-height:1.5'>{eerste}"
+                    f"<b>Bronnen</b> {bronnen}</div>", unsafe_allow_html=True)
+        return
     st.markdown(
         f"<div style='margin:-.2rem 0 .7rem;font-size:.82rem;color:#52514e;line-height:1.5'>{eerste}"
         f"<b>Invoer</b> {invoer}<br><b>Bronnen</b> {bronnen}</div>", unsafe_allow_html=True)
