@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from model.common import Check, checks_standaard, nl, p_kw, vorm
+from model.common import Check, checks_standaard, nl, p_kw
 
 TECH = {"geen": "ae", "all-electric": "ae", "ZLT": "zlt"}
 POMPINVOER = ["per woning", "totaal buurt"]
@@ -20,7 +20,7 @@ MT_COP = {"collectieve warmtepomp": "cop_mt_wp"}
 ZLT_BRON = ["buiten beschouwing", "aquathermie TEO", "aquathermie TEA", "ondiepe geothermie"]
 ZLT_STANDAARD = ZLT_BRON[1]  # standaard met bronstroom, zodat de vergelijking met andere oplossingen eerlijk is
 ZLT_T_BRON = {"aquathermie TEO": "t_bron_teo", "aquathermie TEA": "t_bron_tea", "ondiepe geothermie": "t_bron_geo"}
-VORMEN = ["vlak", "gemeten"]  # bandbreedte voor all-electric: maximale buffering, of gemeten aggregaatprofiel
+# Verloop all-electric: vlak over de dag (besluit na overleg met heatgeeks, november 2026)
 
 
 def q_jaar_gas(b, p) -> float:
@@ -94,7 +94,6 @@ class Resultaat:
     q_ref: float
     T: np.ndarray
     vorm_bron: str
-    band: dict  # vorm -> (v, P); alleen bij all-electric en geen
     cop: float
     e_warmtepomp: float  # kWh stroom per woning per dag voor warmtepomp of booster
     e_pomp: float        # kWh stroom per woning per dag voor de pompen van het warmtenet
@@ -113,7 +112,7 @@ class Resultaat:
     e_bron: float = 0.0        # kWh stroom per woning per dag voor de centrale bronwarmtepomp (ZLT)
 
 
-def bereken(b, p, dag, prof, oplossing: str | None = None, wp_vorm: str = "vlak",
+def bereken(b, p, dag, prof, oplossing: str | None = None,
             pomp_invoer: str = "per woning", mt_opwek: str = MT_STANDAARD, zlt_bron: str = ZLT_STANDAARD) -> Resultaat:
     oplossing = oplossing or b["warmteoplossing"]
     N = float(n_woningen(oplossing, b))
@@ -131,13 +130,8 @@ def bereken(b, p, dag, prof, oplossing: str | None = None, wp_vorm: str = "vlak"
     c_bron = cop_bron(zlt_bron, p) if oplossing == "ZLT" else float("nan")
     e_bron = 0.0 if np.isnan(c_bron) or np.isnan(c) else q_ref * (1 - 1 / c) / c_bron
     E = e_wp + e_bron + e_p
-    band = {}
-    if oplossing in ("geen", "all-electric"):
-        vs = {"vlak": np.full(len(T), 1 / len(T)), "gemeten": vorm(prof["wp_aggregaat"])}
-        band = {naam: (vv, p_kw(N, E, vv)) for naam, vv in vs.items()}
-        v, vorm_bron = vs[wp_vorm], wp_vorm
-    else:  # warmtenetten: voorlopig constant over de dag
-        v, vorm_bron = np.full(len(T), 1 / len(T)), "constant"
+    v = np.full(len(T), 1 / len(T))  # vlak: all-electric (heatgeeks) en warmtenetten (voorlopig)
+    vorm_bron = "vlak" if oplossing in ("geen", "all-electric") else "constant"
     P = p_kw(N, E, v)
     checks = checks_standaard(P, N, E, v, +1) + [
         Check("Warmtevraag per jaar positief (Q_jaar > 0)", f"{nl(Q)} kWh", "> 0", Q > 0),
@@ -152,6 +146,6 @@ def bereken(b, p, dag, prof, oplossing: str | None = None, wp_vorm: str = "vlak"
                             f"{nl(lo, 1)} tot {nl(hi, 1)}", lo <= c_bron <= hi))
     return Resultaat(oplossing, N, b["gas_m3_per_woning"], p["gas_tapwater_koken_m3"], q_jaar_gas(b, p),
                      Q, gd_ref,
-                     q_ref, T, vorm_bron, band, c, e_wp, e_p, E, v, P, checks, pomp_invoer,
+                     q_ref, T, vorm_bron, c, e_wp, e_p, E, v, P, checks, pomp_invoer,
                      float(b["woningen"]), float(b["wp_aandeel_huidig"]), mt_opwek, gas * 100, N * q_ref / 24,
                      zlt_bron, c_bron, e_bron)

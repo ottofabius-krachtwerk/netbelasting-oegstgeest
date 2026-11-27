@@ -102,3 +102,14 @@ def checktabel(checks: list[Check]) -> None:
         f"{rijen}</table>", unsafe_allow_html=True)
     n = sum(c.ok for c in checks)
     st.caption(f"{n} van {len(checks)} geslaagd")
+
+
+def open_punten(punten: list[str]) -> None:
+    """Korte lijst met openstaande punten onderaan een tab."""
+    if not punten:
+        return
+    regels = "".join(f"<li>{x}</li>" for x in punten)
+    with st.container(border=True):
+        st.markdown("<div style='font-weight:600;color:#8a4b00'>Openstaande punten</div>"
+                    "<ul style='font-size:.8rem;color:#52514e;margin:.2rem 0 0 1rem;padding:0;line-height:1.45'>"
+                    f"{regels}</ul>", unsafe_allow_html=True)
