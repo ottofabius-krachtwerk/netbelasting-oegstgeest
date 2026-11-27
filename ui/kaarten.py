@@ -34,10 +34,12 @@ def meta(kaart: int) -> tuple[str, str]:
             "(2022), middagpiek verlaagd (aanname)"),
         5: ("e-bestelbussen en e-trucks per buurt (prognose min 2025; alleen de toename) · laadenergie per voertuigtype · "
             "laadprofiel per voertuigtype",
-            "invoer zijbalk · laadprofiel: vlak (aanname) · laadenergie: aanname, bron open"),
+            "ElaadNL Outlook scenariotool (aantal e-bestelbussen en e-trucks per scenario en jaar) · invoer zijbalk · "
+            "laadprofiel: schetsprofiel per voertuigtype (aanname) · laadenergie: aanname, bron open"),
         4: ("prognose aantal EV's per buurt (scenario laag, middel of hoog; totaal) · aandeel publiek laden · aandeel slim laden thuis en "
             "publiek · laadenergie per auto · laadverloop en spreiding per laadpunt, thuis en publiek, standaard en slim",
-            "invoer zijbalk · ElaadNL gegenereerde laadpuntprofielen 2025 · slim thuis: aanname"),
+            "ElaadNL Outlook scenariotool (aantal EV's per scenario en jaar) · invoer zijbalk · ElaadNL gegenereerde "
+            "laadpuntprofielen 2025 · slim thuis: aanname"),
         7: ("jaaropwek huidige zon op woningen en niet-woningen (vaste basis) · resterende dakpotentie zon per buurt, "
             "woningen en niet-woningen · benutting in %, apart voor woningen en niet-woningen (extra) · instraling op "
             "deze dag en per jaar",
@@ -80,8 +82,8 @@ OPEN_PUNTEN = {
         "Ontwerpdag met constant −10 °C is een aanname"],
     4: ["Laadenergie per auto per werkdag onderbouwen",
         "Aandeel publiek laden (40 %) is een aanname",
-        "Aantal EV's in 2025: bronbestand en Klimaatmonitor verschillen; we gebruiken het bronbestand 'Bewerkte data "
-        "per buurt 1-1-2025' (2.833 EV's in de gemeente), dat completer is dan de Klimaatmonitor (1.201)",
+        "Aantal EV's in 2025: ElaadNL en Klimaatmonitor verschillen; we gebruiken de ElaadNL Outlook scenariotool "
+        "(2.833 EV's in de gemeente), die completer is dan de Klimaatmonitor (1.201)",
         "Slim thuisladen (vlak van 01:00 tot 06:00) is een aanname"],
     5: ["Laadenergie per bestelbus (40 kWh) en per truck (150 kWh) zijn placeholders",
         "Laadprofielen per voertuigtype uit een bron halen",
@@ -109,6 +111,7 @@ BRON_LINKS = [
     ("(graaddagen", "KNMI station 215", "https://www.knmi.nl/nederland-nu/klimatologie/daggegevens"),
     ("(instraling", "KNMI station 215", "https://www.knmi.nl/nederland-nu/klimatologie/uurgegevens"),
     ("RAMP", "RAMP-kookprofielen NL (2022)", "https://zenodo.org/records/6579421"),
+    ("Outlook", "ElaadNL Outlook scenariotool", "https://outlook.elaad.nl/scenariotool"),
     ("ElaadNL", "ElaadNL gegenereerde laadpuntprofielen 2025", "https://elaad.nl/data/"),
     ("EPEX", "EPEX NL", "https://www.epexspot.com/en/market-results"),
     ("Energy Quantified", "Energy Quantified", "https://www.energyquantified.com"),

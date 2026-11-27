@@ -128,7 +128,7 @@ def kaart1(r: k1_basis.Resultaat, p, tag) -> None:
                 "weer bij; zo ontstaat het werkelijke verbruik. De opwek van deze winterdag telt in tab "
                 f"{kn(7)} en gaat er pas in de stapeling (tab 9) af. Het thuisladen van de huidige EV's (stand 2025) gaat eraf, omdat tab {kn(4)} "
                 "alle EV's rekent met hun eigen laadprofiel; aandeel thuis = 100 % min het aandeel publiek laden.",
-         bron=f"stap 2 en 3 · huidige EV's: stand 2025 in de buurttabel · laadenergie en aandeel publiek: tab {kn(4)}")
+         bron=f"stap 2 en 3 · huidige EV's: stand 2025 uit de ElaadNL Outlook scenariotool · laadenergie en aandeel publiek: tab {kn(4)}")
     # B · verbruik op deze dag
     stap(5, "Deel van het jaarverbruik op deze dag", nl(r.d * 100, 3), "%", tag=tag("nedu_e1a"),
          reken=[f"d = {nl(r.d * 100, 3)} % (som van NEDU E1A_AZI_A over 18-02-2025)",
@@ -319,7 +319,7 @@ def kaart4(r: k4_laden_auto.Resultaat, p, tag, scenario: str, jaar: int) -> None
          uitleg="Het totale aantal elektrische personenauto's in de buurt volgens de gekozen prognose (zijbalk: laag, "
                 f"middel of hoog). Het thuisladen van de huidige EV's haalt tab {kn(1)} van het netto verbruik af, "
                 "zodat het niet dubbel telt. Het zichtjaar (zijbalk) kiest de prognosekolom en de standaardwaarden van de invoer.",
-         bron="prognose per buurt in de buurttabel (scenario's laag, middel, hoog; nu mock)")
+         bron="ElaadNL Outlook scenariotool (prognose per buurt, scenario's laag, middel en hoog)")
     e_tot = r.N * r.E
     stap(2, "Laadenergie op deze dag", nl(e_tot), "kWh", tag=tag("ev_e_dag"),
          reken=[f"{nl(r.N)} auto's × {nl(r.E, 1)} kWh = {nl(e_tot)} kWh",
@@ -478,7 +478,7 @@ def kaart5(r: k5_logistiek.Resultaat, p, tag, totaal: dict, jaar: int) -> None:
          uitleg="Alleen de toename: de prognose van het gekozen logistiek-scenario en zichtjaar min het aantal in 2025, apart voor "
                 "e-bestelbussen en e-trucks. Wat "
                 f"nu al bij bedrijven laadt, zit in het verbruik van tab {kn(6)}.",
-         bron="Bewerkte data per buurt 1-1-2025: elektrische bestelauto's en trucks per scenario en jaar")
+         bron="ElaadNL Outlook scenariotool: elektrische bestelauto's en trucks per scenario en jaar")
     stap(2, "Laadenergie per voertuig per dag", None, tag=tag("log_e_dag_bestel", "log_e_dag_truck"),
          reken=[f"{n}: {nl(k.N)} voertuigen × {nl(k.E)} kWh = {nl(k.N * k.E)} kWh" for n, k in kl.items()],
          uitleg="Aangenomen laadenergie per voertuigtype op een werkdag.",
