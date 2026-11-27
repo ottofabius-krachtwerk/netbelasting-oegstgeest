@@ -22,6 +22,11 @@ class Veld:
 ALGEMEEN = {
     "koken_penetratie_groei": Veld(2, "Extra huishoudens met elektrisch koken",
                                    "% van alle huishoudens in de buurt, bovenop het huidige aandeel", 0, 0, 100, 1),
+    # COP: standaardwaarde komt uit parameters.csv (zie UIT_DATA); hier alleen het bereik
+    "cop_ae": Veld(3, "COP warmtepomp all-electric", "kWh warmte per kWh stroom, op deze koude dag", 3.0, 1, 7, 0.1,
+                   "Eén COP voor de hele dag. Standaard de waarde uit de parameters (aanname, bron open)"),
+    "cop_mt_wp": Veld(3, "COP collectieve warmtepomp", "kWh warmte per kWh stroom, systeem-COP naar 70 °C", 3.0, 1, 6, 0.1,
+                      "Standaard de waarde uit de parameters (aanname, bron open)"),
     "t_net_zlt": Veld(3, "Temperatuur ZLT-warmtenet", "°C watertemperatuur van het net", 25, 5, 45, 1,
                       "Projectaanname: bron levert 25 °C"),
     "mt_gas_pct": Veld(3, "Piek- en backupvoorziening (gas)", "% van de piekvraag warmte van het MT-net", 0, 0, 100, 5),
@@ -81,10 +86,14 @@ def standaard(naam: str, veld: Veld, jaar: int) -> float:
     return float(STANDAARD_PER_JAAR.get(naam, {}).get(jaar, veld.standaard))
 
 
-NAMEN = set(ALGEMEEN) | set(PER_BUURT) | {"warmteoplossing", "pomp_kw_buurt", "ev_scenario"}  # geen data: telt niet mee in de status
+# Invoervelden met een standaardwaarde uit parameters.csv; ze blijven meetellen in de status (mock, placeholder)
+UIT_DATA = {"cop_ae", "cop_mt_wp"}
+NAMEN = (set(ALGEMEEN) - UIT_DATA) | set(PER_BUURT) | {"warmteoplossing", "pomp_kw_buurt", "ev_scenario"}  # geen data: telt niet mee in de status
 
 
 def eenheid_kort(veld: Veld) -> str:
     """Korte eenheid voor het label in de compacte zijbalk: het eerste woord van de eenheid, met enkele uitzonderingen."""
+    if veld.eenheid.startswith("kWh warmte per kWh stroom"):  # COP: geen eenheid
+        return ""
     eerste = veld.eenheid.split()[0].rstrip(",;")
     return {"W": "W per woning", "MWh": "MWh per jaar"}.get(eerste, eerste)

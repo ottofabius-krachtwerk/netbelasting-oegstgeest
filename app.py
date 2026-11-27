@@ -62,7 +62,7 @@ with st.sidebar:
         De standaardwaarde hangt af van het zichtjaar; het jaar zit in de sleutel, dus een jaarwissel geeft een
         vers veld met de standaardwaarde van dat jaar (Streamlit wist de status van velden die niet meer getoond worden)."""
         if COMPACT:  # kort label; eenheid en uitleg in de help
-            label = f"{v.label} ({invoer.eenheid_kort(v)})"
+            label = f"{v.label} ({invoer.eenheid_kort(v)})" if invoer.eenheid_kort(v) else v.label
             uitleg = f"{v.eenheid[:1].upper()}{v.eenheid[1:]}." + (f" {v.uitleg}" if v.uitleg else "")
         else:
             label = f"{v.label} {buurt} ({v.eenheid})" if per_buurt else f"{v.label} ({v.eenheid})"
@@ -126,6 +126,10 @@ with st.sidebar:
 
     def _relevant(naam: str) -> bool:
         """Invoer van de warmtepomptab alleen tonen als die bij de gekozen warmteoplossing hoort."""
+        if naam == "cop_ae":  # ook bij "geen": de vergelijking toont all-electric
+            return b["warmteoplossing"] in ("geen", "all-electric")
+        if naam == "cop_mt_wp":
+            return b["warmteoplossing"] == "MT" and keuzes["mt_opwek"] in k3_warmtepomp.MT_COP
         if naam == "t_net_zlt":
             return b["warmteoplossing"] == "ZLT"
         if naam == "mt_gas_pct":
@@ -143,7 +147,11 @@ with st.sidebar:
         with st.expander(kaartnaam(kaart).replace(" ", " · ", 1), expanded=kaart == ACTIEF):
             _keuzes(kaart)
             for naam, v in velden.items():
-                p[naam] = _veld(naam, v) if _relevant(naam) else invoer.standaard(naam, v, jaar)  # niet van toepassing: standaard
+                start = p[naam] if naam in invoer.UIT_DATA else None  # standaard uit parameters.csv
+                if _relevant(naam):
+                    p[naam] = _veld(naam, v, standaard=start)
+                elif start is None:  # niet van toepassing: standaard
+                    p[naam] = invoer.standaard(naam, v, jaar)
 
     for k in WONINGTYPEN.values():  # extra woningen (of sloop) per type: alle tabs rekenen met het totaal
         b[f"woningen_{k}_nu"] = float(b[f"woningen_{k}"])
