@@ -85,8 +85,9 @@ def kaart1(r: k1_basis.Resultaat, p, tag) -> None:
     _kop(1)
     _formule("Profiel = woningen × huishoudelijk verbruik per woning op deze dag × verloop over de dag (bruto, zonder "
              f"zon; alle opwek staat in tab {kn(7)})", "P[t] = 4 × N × E × v[t], Σ v = +1")
-    kerncijfers([("Woningen", nl(r.N), ""), ("Huishoudelijk jaarverbruik", nl(r.e_jaar_buurt / 1e3), "MWh"),
-                 ("Verbruik op deze dag", nl(r.e_dag), "kWh"), _piek(r.P)])
+    kerncijfers([("Woningen", nl(r.N), ""), ("Netto jaarverbruik (met zon eraf)", nl(r.e_netto / 1e3), "MWh"),
+                 ("Bruto jaarverbruik (zonder zon)", nl(r.e_jaar_buurt / 1e3), "MWh"),
+                 ("Bruto verbruik op deze dag", nl(r.e_dag), "kWh"), _piek(r.P, "Piek bruto")])
     t = r.types
     # A · jaarverbruik
     stap(1, "Aantal woningen", nl(r.N), "woningen", tag=tag("buurten"),
@@ -120,7 +121,7 @@ def kaart1(r: k1_basis.Resultaat, p, tag) -> None:
               f"grootste functie (keuze open). De opwek op de overige daken staat in tab {kn(7)}. Zelfde jaar als het netto "
               "verbruik (2025) en de opwek van geplaatste panelen, niet het dakpotentieel.")
     thuis = 100 - p["publiek_aandeel"]
-    stap(4, "Huishoudelijk jaarverbruik", nl(r.e_jaar_buurt / 1e3), "MWh/jaar",
+    stap(4, "Bruto huishoudelijk jaarverbruik", nl(r.e_jaar_buurt / 1e3), "MWh/jaar",
          tag=tag("buurten", "ev_e_dag"),
          reken=[f"thuisladen huidige EV's: {nl(r.ev_huidig)} EV's × {nl(p['ev_e_dag'], 1)} kWh × 365 × {nl(thuis)} % "
                 f"thuis = {nl(r.e_ev_thuis / 1e3)} MWh",
@@ -143,7 +144,7 @@ def kaart1(r: k1_basis.Resultaat, p, tag) -> None:
          bron="NEDU standaardprofielen elektriciteit 2025 (E1A_AZI_A, 18-02-2025)",
          noot="bij NEDU nagaan hoeveel woningen met warmtepomp of EV in de steekproef voor E1A_AZI_A zaten (2021 tot "
               "2023). Bij een groot aandeel is de fractie voor puur huishoudelijk verbruik lager.")
-    p_en_checks(6, r.P / max(r.N, 1), k, r.checks, naam="Huishoudelijk verbruik per woning over de dag",
+    p_en_checks(6, r.P / max(r.N, 1), k, r.checks, naam=f"Bruto verbruik per woning over de dag (zonder zon; de opwek staat in tab {kn(7)})",
                 eenheid="kW per woning", dec=2,
                 reken=[f"{nl(r.e_jaar)} kWh × {nl(r.d * 100, 3)} % = {nl(r.E, 2)} kWh per woning op deze dag",
                        f"{nl(r.N)} woningen × {nl(r.E, 2)} kWh = {nl(r.e_dag)} kWh",
