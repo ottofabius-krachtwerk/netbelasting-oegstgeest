@@ -53,7 +53,7 @@ def meta(kaart: int) -> tuple[str, str]:
             "de buurt) · warmteproductie MT-net (collectieve warmtepomp of buiten de buurt) · aandeel gasgestuurde "
             "piek- en backupvoorziening",
             "Klimaatmonitor (gas per woningtype, woningen) · KNMI station 215 (graaddagen 2025) · "
-            "buitentemperatuur: aanname −10 °C · verloop: vlak (afgestemd met heatgeeks) · "
+            "buitentemperatuur: aanname −10 °C · verloop: vlak (onderbouwing samen met Heat Geek) · "
             "COP: open"),
         1: (f"woningen en netto verbruik per woningtype · jaaropwek huidige zon bij woningen (alleen voor netto naar "
             f"bruto; de opwek zelf staat in tab {t(7)}) · NEDU-profiel · huidige warmtepompen en EV's zitten in het netto "

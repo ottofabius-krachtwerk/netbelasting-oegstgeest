@@ -9,7 +9,7 @@ from model import k1_basis, k2_koken, k3_warmtepomp, k4_laden_auto, k5_logistiek
 from model import stapeling as stapeling_model
 from model.common import nl
 from model.data import WONINGTYPEN
-from ui.charts import H_GROOT, KLEUR, MUTED, TIJD, balans, gestapeld, lijn, staven, waterval
+from ui.charts import H_GROOT, KLEUR, MUTED, TIJD, balans, gestapeld, lijn, staven, staven_gestapeld, waterval
 from ui.kaarten import OPEN_PUNTEN, kaartnaam, kleur, kn, meta
 from ui import stappen
 from ui.stappen import badge, kerncijfers, kop, open_punten, p_en_checks, stap
@@ -143,7 +143,8 @@ def kaart1(r: k1_basis.Resultaat, p, tag) -> None:
          bron="NEDU standaardprofielen elektriciteit 2025 (E1A_AZI_A, 18-02-2025)",
          noot="bij NEDU nagaan hoeveel woningen met warmtepomp of EV in de steekproef voor E1A_AZI_A zaten (2021 tot "
               "2023). Bij een groot aandeel is de fractie voor puur huishoudelijk verbruik lager.")
-    p_en_checks(6, r.P, k, r.checks, naam="Huishoudelijk verbruik over de dag",
+    p_en_checks(6, r.P / max(r.N, 1), k, r.checks, naam="Huishoudelijk verbruik per woning over de dag",
+                eenheid="kW per woning", dec=2,
                 reken=[f"{nl(r.e_jaar)} kWh × {nl(r.d * 100, 3)} % = {nl(r.E, 2)} kWh per woning op deze dag",
                        f"{nl(r.N)} woningen × {nl(r.E, 2)} kWh = {nl(r.e_dag)} kWh",
                        f"hoogste kwartier {_hoogste(r.v)}: {nl(r.v.max() * 100, 2)} % van de dag → "
@@ -210,7 +211,7 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
                  if wn else
                  "De warmtepompen draaien op deze koude dag gelijkmatig over de dag: met buffering in woning en "
                  "installatie valt er geen ochtendpiek."),
-         bron="aanname (constant)" if wn else "besluit na overleg met heatgeeks (november 2026)")
+         bron="aanname (constant)" if wn else "onderbouwing samen met Heat Geek (november 2026)")
     extra6 = []
     if not np.isnan(r.cop):
         naam6 = {"ZLT": "booster", "MT": "collectieve warmtepomp"}.get(r.oplossing, "warmtepomp")
@@ -267,21 +268,23 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
                       "bronwarmtepomp (brontemperatuur, rendement) en pompvermogen: bron open",
                "MT": "stap 3 · warmteproductie en aandeel gas: invoer zijbalk · systeem-COP en pompvermogen: "
                      "bron open"}[r.oplossing])
-    stap(6, "Warmteoplossingen naast elkaar", None, kern=True,
-         fig=lijn({o: v.P for o, v in varianten.items()}, KLEUR[:len(varianten)], "kW", fmt=",.0f"),
-         extra=[(o, f"{nl(v.P.max())} kW ({nl(_piek_per_eenheid(v.E, v.v), 2)} kW per woning)")
-                for o, v in varianten.items()],
+    vergelijk = {o: v for o, v in varianten.items() if o != "geen"}  # "geen": geen extra woningen
+    onderdelen = {  # vlak verloop, dus vermogen = energie per dag ÷ 24 uur
+        "warmtepomp, booster of collectieve warmtepomp": [v.e_warmtepomp / 24 for v in vergelijk.values()],
+        "bronwarmtepomp (ZLT)": [v.e_bron / 24 for v in vergelijk.values()],
+        "pompen warmtenet": [v.e_pomp / 24 for v in vergelijk.values()]}
+    stap(6, "Warmteoplossingen naast elkaar: vermogen per woning", None, kern=True,
+         fig=staven_gestapeld(vergelijk, onderdelen, [k, KLEUR[0], MUTED], "kW per woning"),
+         extra=[(o, f"{nl(_piek_per_eenheid(v.E, v.v), 2)} kW per woning ({nl(v.P.max())} kW in de buurt)")
+                for o, v in vergelijk.items()],
          tag=tag("t_ref", *q_par, "cop_ae", "cop_zlt_a", "cop_zlt_b", "t_bron_teo", "t_bron_tea", "t_bron_geo", "eta_bron",
                  "cop_bron_max", "cop_mt_wp", "pomp_w_woning"),
-         uitleg="Dezelfde buurt bij elke warmteoplossing; bij 'geen' komen er geen woningen bij (0 kW). ZLT en MT "
-                "met de gekozen bron of warmteproductie.",
+         uitleg="Dezelfde woning bij elke warmteoplossing, opgebouwd uit de onderdelen. Alle verlopen zijn vlak, dus "
+                "het vermogen is de hele dag gelijk. ZLT en MT met de gekozen bron of warmteproductie; 'geen' staat er "
+                "niet bij (geen extra woningen).",
          bron="stappen 1 tot en met 5, voor elke warmteoplossing")
-    if stappen.COMPACT:  # compact: profiel van de buurt in kW, net als in de andere tabs
-        p_en_checks(7, r.P, k, r.checks, naam="Profiel van de buurt")
-    else:
-        n = r.N if r.N > 0 else 1.0  # per woning (genormaliseerd); zonder extra woningen ("geen") blijft het 0
-        eenh = "kW per woning" if r.N > 0 else "kW"
-        p_en_checks(7, r.P / n, k, r.checks, eenheid=eenh, dec=2)
+    # per woning (genormaliseerd); zonder extra woningen ("geen") blijft het 0
+    p_en_checks(7, r.P / r.N if r.N > 0 else r.P, k, r.checks, naam="Profiel per woning", eenheid="kW per woning", dec=2)
     open_punten(OPEN_PUNTEN[3])
     _vast(3)
 
@@ -411,7 +414,9 @@ def _type_a(nr_kleur: int, r, zin: str, symbolen: str, n_titel: str, n_eenheid: 
          lijn({"verloop": _pct(r.v)}, [k], VERLOOP, fmt=".2f"),
          extra=[("piek", f"{nl(_piek_per_eenheid(r.E, r.v), 2)} kW per {n_eenheid.split()[0].rstrip('s')}")],
          tag=tag(v_naam), uitleg=v_uitleg, bron=bronnen[2])
-    p_en_checks(4, r.P, k, r.checks)
+    eenheid = n_eenheid.split()[0].rstrip("s")  # bijv. huishouden
+    p_en_checks(4, 4 * r.E * np.asarray(r.v), k, r.checks, naam=f"Profiel per {eenheid}", eenheid=f"kW per {eenheid}",
+                dec=2)
 
 
 def kaart2(r: k2_koken.Resultaat, tag) -> None:

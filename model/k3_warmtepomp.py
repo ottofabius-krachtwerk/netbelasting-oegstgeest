@@ -20,7 +20,7 @@ MT_COP = {"collectieve warmtepomp": "cop_mt_wp"}
 ZLT_BRON = ["buiten beschouwing", "aquathermie TEO", "aquathermie TEA", "ondiepe geothermie"]
 ZLT_STANDAARD = ZLT_BRON[1]  # standaard met bronstroom, zodat de vergelijking met andere oplossingen eerlijk is
 ZLT_T_BRON = {"aquathermie TEO": "t_bron_teo", "aquathermie TEA": "t_bron_tea", "ondiepe geothermie": "t_bron_geo"}
-# Verloop all-electric: vlak over de dag (besluit na overleg met heatgeeks, november 2026)
+# Verloop all-electric: vlak over de dag (onderbouwing samen met Heat Geek, november 2026)
 
 
 def q_jaar_gas(b, p) -> float:
@@ -130,7 +130,7 @@ def bereken(b, p, dag, prof, oplossing: str | None = None,
     c_bron = cop_bron(zlt_bron, p) if oplossing == "ZLT" else float("nan")
     e_bron = 0.0 if np.isnan(c_bron) or np.isnan(c) else q_ref * (1 - 1 / c) / c_bron
     E = e_wp + e_bron + e_p
-    v = np.full(len(T), 1 / len(T))  # vlak: all-electric (heatgeeks) en warmtenetten (voorlopig)
+    v = np.full(len(T), 1 / len(T))  # vlak: all-electric (Heat Geek) en warmtenetten (voorlopig)
     vorm_bron = "vlak" if oplossing in ("geen", "all-electric") else "constant"
     P = p_kw(N, E, v)
     checks = checks_standaard(P, N, E, v, +1) + [

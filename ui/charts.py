@@ -104,3 +104,21 @@ def gestapeld(reeksen: dict, kleuren, eenheid: str = "kW", hoogte: int = H_GROOT
 
 def toon(fig: go.Figure) -> None:
     st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
+
+
+def staven_gestapeld(categorieen, onderdelen: dict, kleuren, eenheid: str = "", hoogte: int = H_GROOT,
+                     fmt: str = ",.2f") -> go.Figure:
+    """Staande staven per categorie, opgebouwd uit onderdelen, met het totaal boven elke staaf."""
+    categorieen = list(categorieen)
+    fig = go.Figure()
+    for (naam, y), k in zip(onderdelen.items(), kleuren):
+        fig.add_bar(x=categorieen, y=list(y), name=naam, marker_color=k,
+                    hovertemplate=f"%{{y:{fmt}}} {eenheid}<extra>{naam}</extra>")
+    totaal = np.sum([list(y) for y in onderdelen.values()], axis=0)
+    fig.add_scatter(x=categorieen, y=totaal, mode="text", text=[f"{t:{fmt}}".replace(",", " ").replace(".", ",")
+                                                                 .replace(" ", ".") for t in totaal],
+                    textposition="top center", textfont=dict(color=INKT, size=12), showlegend=False, hoverinfo="skip")
+    fig.update_layout(barmode="stack", bargap=0.45)
+    fig = _opmaak(fig, hoogte, eenheid, tijdas=False, legenda=True)
+    fig.update_yaxes(range=[0, max(float(totaal.max()), 1e-9) * 1.18])
+    return fig
