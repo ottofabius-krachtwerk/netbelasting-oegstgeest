@@ -59,7 +59,7 @@ def meta(kaart: int) -> tuple[str, str]:
             f"bruto; de opwek zelf staat in tab {t(7)}) · NEDU-profiel · huidige warmtepompen en EV's zitten in het netto "
             "verbruik",
             "CBS (woningen per woningtype per buurt) · Klimaatmonitor (netto levering per woningtype, 2025) · NEDU "
-            "standaardprofielen elektriciteit 2025 (E1A_AZI_A) · Zonnedakje (jaaropwek zon bij woningen)"),
+            "standaardprofielen elektriciteit 2025 (E1A_AZI_A) · Zonnedakje (jaaropwek huidige zon bij woningen, alleen om netto naar bruto verbruik om te rekenen)"),
         8: (f"woningen · adoptiegraad · capaciteit en vermogen per batterij · rendement · batterijmodus · uit tab {t(1)}: "
             f"last per woning · uit tab {t(7)}: zon per kWp · day-ahead prijs",
             "open (Essent batterijwaardering, literatuur, NL Flex) · day-ahead prijs: EPEX NL, gemiddelde 5 koudste "
