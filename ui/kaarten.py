@@ -6,7 +6,7 @@ KAARTEN = {1: "Woningen basis", 2: "Elektrisch koken", 3: "Warmteoplossing", 4: 
            5: "Laden logistiek", 6: "MKB en grootverbruik", 7: "Zonne-opwek", 8: "Thuisbatterij"}
 VOLGORDE = [1, 2, 3, 4, 5, 6, 7, 8]  # volgorde van de tabs, van links naar rechts (bordnummers)
 # Tabs met een rode titel (bordnummers): woningen basis, warmteoplossing, laden personenauto's, laden logistiek, MKB, zon
-ROOD = {1, 3, 4, 5, 6, 7}
+ROOD = set()  # alle tabtitels zwart (eerder rood: 1, 3, 4, 5, 6, 7)
 POSITIE = {kaart: i + 1 for i, kaart in enumerate(VOLGORDE)}  # plek van links naar rechts, voor de kleuren
 NR_STAPELING = 9  # stapeling is bord 9
 
