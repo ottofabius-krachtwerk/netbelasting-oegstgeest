@@ -5,6 +5,7 @@ import streamlit as st
 from model import k1_basis, k2_koken, k3_warmtepomp, k4_laden_auto, k5_logistiek, k6_mkb, k7_zon, k8_batterij, stapeling
 from model.data import DATA, EV_SCENARIOS, LOG_TYPEN, WARMTEOPLOSSINGEN, WONINGTYPEN, DataFout, laad
 from ui import invoer, tabs
+from ui.stappen import COMPACT
 from ui.kaarten import ROOD, VOLGORDE, kaartnaam, kleur
 
 st.set_page_config(page_title="Netbelasting Oegstgeest", layout="wide")
@@ -30,7 +31,7 @@ def _stempel(bron: str) -> float:
 
 # Sidebar: databron en buurt gelden voor alle tabs; de rest staat in de groep van de tab waar het bij hoort
 with st.sidebar:
-    echt = st.toggle("Echte data", value=False)
+    echt = True if COMPACT else st.toggle("Echte data", value=False)  # klantversie: altijd echte data
     bron = "real" if echt else "mock"
     try:
         data = _laad(bron, _stempel(bron))
@@ -45,21 +46,31 @@ with st.sidebar:
                     help="Zet de invoer in de zijbalk op de standaardwaarden van dat jaar; eigen wijzigingen vervallen bij "
                          "een jaarwissel. De warmteoplossing wisselt niet mee. Waarden voor 2035 en 2050 zijn voorlopige "
                          "aannames.")
-    st.caption("Bij het kiezen van een jaar worden de huidige instellingen in de zijbalk overschreven door de "
-               "standaardwaarden van dat jaar (de warmteoplossing blijft staan).")
+    if not COMPACT:
+        st.caption("Bij het kiezen van een jaar worden de huidige instellingen in de zijbalk overschreven door de "
+                   "standaardwaarden van dat jaar (de warmteoplossing blijft staan).")
     b = data.buurten.loc[code].copy()
     buurt = b["buurt_naam"]
+    if COMPACT:
+        st.caption(f"Invoer per buurt geldt voor {buurt}. Eenheden en uitleg staan bij het vraagteken.")
+    # compact: korte labels zonder buurtnaam (die staat bovenaan)
+    bij = "" if COMPACT else f" ({buurt})"
     keuzes = {}
 
     def _veld(naam: str, v: invoer.Veld, per_buurt: bool = False, standaard: float | None = None) -> float:
         """Eén invoerveld; per-buurt-velden hebben de buurtnaam in het label en een eigen sleutel per buurt.
         De standaardwaarde hangt af van het zichtjaar; het jaar zit in de sleutel, dus een jaarwissel geeft een
         vers veld met de standaardwaarde van dat jaar (Streamlit wist de status van velden die niet meer getoond worden)."""
-        label = f"{v.label} {buurt} ({v.eenheid})" if per_buurt else f"{v.label} ({v.eenheid})"
+        if COMPACT:  # kort label; eenheid en uitleg in de help
+            label = v.label
+            uitleg = f"{v.eenheid[:1].upper()}{v.eenheid[1:]}." + (f" {v.uitleg}" if v.uitleg else "")
+        else:
+            label = f"{v.label} {buurt} ({v.eenheid})" if per_buurt else f"{v.label} ({v.eenheid})"
+            uitleg = v.uitleg
         start = invoer.standaard(naam, v, jaar) if standaard is None else standaard
         return st.number_input(label, float(v.min), float(v.max), float(start), float(v.stap),
                                key=f"{bron}:{jaar}:{naam}:{code}" if per_buurt else f"{bron}:{jaar}:{naam}",
-                               help=v.uitleg or None)
+                               help=uitleg or None)
 
     def _keuzes(kaart: int) -> None:
         """Keuzes en per-buurt-invoer die bij één tab horen, bovenaan de groep van die tab."""
@@ -67,7 +78,7 @@ with st.sidebar:
             if v.kaart == kaart and kaart != 3:
                 b[naam] = _veld(naam, v, per_buurt=True)
         if kaart == 3:
-            b["warmteoplossing"] = st.selectbox(f"Warmteoplossing ({buurt})", WARMTEOPLOSSINGEN,
+            b["warmteoplossing"] = st.selectbox(f"Warmteoplossing{bij}", WARMTEOPLOSSINGEN,
                                                 index=WARMTEOPLOSSINGEN.index(invoer.WARMTEOPLOSSING),
                                                 key=f"{bron}:warmteoplossing:{code}")
             for naam in ("wp_aandeel_huidig", "isolatie_reductie"):
@@ -78,13 +89,13 @@ with st.sidebar:
             keuzes["zlt_bron"] = k3_warmtepomp.ZLT_STANDAARD
             b["pomp_kw_buurt"] = invoer.ALGEMEEN["pomp_w_woning"].standaard * b["woningen"] / 1000
             if wo == "MT":
-                keuzes["mt_opwek"] = st.radio(f"Warmteproductie MT-net 70 °C ({buurt})", k3_warmtepomp.MT_OPWEK,
+                keuzes["mt_opwek"] = st.radio(f"Warmteproductie MT-net 70 °C{bij}", k3_warmtepomp.MT_OPWEK,
                                               index=k3_warmtepomp.MT_OPWEK.index(k3_warmtepomp.MT_STANDAARD),
                                               format_func=lambda o: {"buiten beschouwing": "warmteproductie is buiten "
                                                                      "de buurt"}.get(o, f"{o} naar 70 °C"),
                                               key=f"{bron}:mtopwek:{code}")
             if wo == "ZLT":
-                keuzes["zlt_bron"] = st.radio(f"Warmtebron ZLT-net ({buurt})", k3_warmtepomp.ZLT_BRON,
+                keuzes["zlt_bron"] = st.radio(f"Warmtebron ZLT-net{bij}", k3_warmtepomp.ZLT_BRON,
                                               index=k3_warmtepomp.ZLT_BRON.index(k3_warmtepomp.ZLT_STANDAARD),
                                               format_func=lambda o: {"buiten beschouwing": "bron is buiten de buurt "
                                                                      "(bronstroom telt niet mee)"}.get(o, f"{o} + "
@@ -94,7 +105,8 @@ with st.sidebar:
                 keuzes["pomp_invoer"] = st.radio("Pompvermogen warmtenet opgeven als", k3_warmtepomp.POMPINVOER,
                                                  horizontal=True, key=f"{bron}:pompinvoer")
                 if keuzes["pomp_invoer"] == "totaal buurt":  # standaard: het pompvermogen per woning × woningen
-                    b["pomp_kw_buurt"] = st.number_input(f"Totaal pompvermogen warmtenet {buurt} (kW, constant)", 0.0,
+                    b["pomp_kw_buurt"] = st.number_input("Totaal pompvermogen warmtenet (kW, constant)" if COMPACT else
+                                                         f"Totaal pompvermogen warmtenet {buurt} (kW, constant)", 0.0,
                                                          5000.0, float(b["pomp_kw_buurt"]), 5.0,
                                                          key=f"{bron}:pomp_kw_buurt:{code}")
         elif kaart == 4:  # prognose: totaal aantal EV's in de buurt, één scenario voor alle buurten

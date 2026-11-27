@@ -22,6 +22,14 @@ def _grafiek(titel: str, fig, bron: str = "", tag: str = "") -> None:
         toon(fig)
 
 
+def kerncijfers(rij: list[tuple[str, str, str]]) -> None:
+    """Compact: een rij met de belangrijkste getallen van de tab (label, waarde, eenheid)."""
+    if not COMPACT or not rij:
+        return
+    for kol, (label, waarde, eenheid) in zip(st.columns(len(rij)), rij):
+        kol.metric(label, f"{waarde} {eenheid}".strip(), border=True)
+
+
 LABEL = {"mock": ("mock", "#52514e", "#f0efec"), "placeholder": ("placeholder", "#8a4b00", "#fdeccc")}
 
 
@@ -35,10 +43,12 @@ def badge(status: str) -> str:
 
 def stap(nr: int, titel: str, waarde: str | None = None, eenheid: str = "", fig=None,
          extra: list[tuple[str, str]] | None = None, tag: str = "bron", uitleg: str = "", bron: str = "",
-         reken: list[str] | None = None, noot: str = "") -> None:
-    """Eén rekenstap als rij: links titel, uitleg, rekenregels en resultaat, rechts een kleine grafiek."""
-    if COMPACT:  # alleen stappen met een grafiek
-        if fig is not None:
+         reken: list[str] | None = None, noot: str = "", kern: bool = False) -> None:
+    """Eén rekenstap als rij: links titel, uitleg, rekenregels en resultaat, rechts een kleine grafiek.
+
+    Compact: alleen de grafiek, en alleen bij een kernstap (kern=True)."""
+    if COMPACT:
+        if kern and fig is not None:
             _grafiek(titel, fig, bron, tag)
         return
     with st.container(border=True):
@@ -77,9 +87,12 @@ def rekenregels(reken: list[str] | None) -> str:
 
 
 def p_en_checks(nr: int, P, kleur: str, checks: list[Check], naam: str = "Profiel over de dag", fig=None,
-                reken: list[str] | None = None, noot: str = "", eenheid: str = "kW", dec: int = 0) -> None:
-    if COMPACT:  # alleen het profiel, zonder rekenregels en checks
-        _grafiek(naam, fig if fig is not None else lijn({"profiel": P}, [kleur], eenheid, H_GROOT, fmt=",.1f", vlak=True))
+                reken: list[str] | None = None, noot: str = "", eenheid: str = "kW", dec: int = 0,
+                compact: bool = True) -> None:
+    """Profiel en checks. Compact: alleen het profiel, en niet als een kernstap hetzelfde profiel al toont."""
+    if COMPACT:
+        if compact:
+            _grafiek(naam, fig if fig is not None else lijn({"profiel": P}, [kleur], eenheid, H_GROOT, fmt=",.1f", vlak=True))
         return
     links, rechts = st.columns([1.7, 1])
     i_max, i_min = int(np.argmax(P)), int(np.argmin(P))
