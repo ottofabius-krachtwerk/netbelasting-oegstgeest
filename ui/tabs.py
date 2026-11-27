@@ -165,13 +165,15 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
                "MT": (k3_warmtepomp.MT_COP[r.mt_opwek], "mt_gas_pct") if r.mt_opwek in k3_warmtepomp.MT_COP else ()
                }[r.oplossing]
     net = r.oplossing in ("ZLT", "MT")
-    _kop(3)
+    _kop(3, extra=badge("placeholder").replace("margin-left:6px", "margin-left:0")
+         + f" warmtevraag nieuwbouw ({nl(p['q_nieuwbouw'])} kWh per woning per jaar) is een beste inschatting voor "
+           "netbewuste nieuwbouw; nog te onderbouwen")
     _formule("Profiel = aantal woningen × stroom per woning op deze dag × verloop over de dag; "
              "stroom = warmtevraag ÷ COP" + (" + stroom voor de bronwarmtepomp" if bron_zlt else "")
              + (" + pompenergie van het warmtenet" if net else ""),
              "P[t] = 4 × N × E × v[t], E = Q_ref ÷ COP" + (" + E_bron" if bron_zlt else "") + (" + E_pomp" if net else ""))
     cop = "–" if np.isnan(r.cop) else nl(r.cop, 1)
-    kerncijfers([("Warmteoplossing", r.oplossing, ""), ("Extra woningen", nl(r.N), ""),
+    kerncijfers([("Warmteoplossing", r.oplossing, ""), ("Woningen bestaand / nieuwbouw", f"{nl(r.N)} / {nl(r.N_nieuw)}", ""),
                  (f"Warmtevraag per woning ({nl(p['t_ref']).replace('-', '−')} °C)", nl(r.q_ref, 1), "kWh"),
                  ("COP" + (" (booster / bron)" if bron_zlt else ""), cop + (f" / {nl(r.cop_bron, 1)}" if bron_zlt else ""), ""),
                  ("Stroom per woning", nl(r.E, 1), "kWh"), _piek(r.P, "Piek buurt")])
@@ -180,9 +182,10 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
          reken=["geen: 0 woningen"] if r.oplossing == "geen" else
                [f"{nl(r.woningen)} woningen × (100 % − {nl(r.wp_aandeel_huidig)} % met nu al een warmtepomp) = "
                 f"{nl(r.N)} woningen"],
-         uitleg="Alleen de toename: alle woningen in de buurt gaan over op de gekozen warmteoplossing, behalve de "
-                f"woningen die nu al een warmtepomp hebben. Hun verbruik zit al in tab {kn(1)}. Bij 'geen' komen er "
-                "geen woningen bij.",
+         uitleg="Alleen de toename: alle bestaande woningen in de buurt gaan over op de gekozen warmteoplossing, "
+                f"behalve de woningen die nu al een warmtepomp hebben. Hun verbruik zit al in tab {kn(1)}. Bij 'geen' "
+                f"komen er geen woningen bij. De extra woningen uit tab {kn(1)} tellen hier niet mee; nieuwbouw heeft "
+                "een eigen invoer (stap 6).",
          bron="CBS (woningen) · warmteoplossing en huidig aandeel warmtepompen: invoer zijbalk")
     stap(2, "Warmtevraag per woning per jaar, uit gas", nl(r.q_jaar_gas), "kWh warmte",
          waterval(["gas", "−tapwater en koken", "ruimteverwarming"], [r.gas, -r.gas_tapwater_koken, 0],
@@ -274,18 +277,34 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
         "warmtepomp, booster of collectieve warmtepomp": [v.e_warmtepomp / 24 for v in vergelijk.values()],
         "bronwarmtepomp (ZLT)": [v.e_bron / 24 for v in vergelijk.values()],
         "pompen warmtenet": [v.e_pomp / 24 for v in vergelijk.values()]}
-    stap(6, "Warmteoplossingen naast elkaar: vermogen per woning", None, kern=True,
+    stap(6, "Nieuwbouwwoningen met eigen warmtepomp", nl(r.N_nieuw), "woningen", tag=tag("q_nieuwbouw", "cop_ae", "gd_jaar"),
+         extra=[("stroom per woning", f"{nl(r.E_nieuw, 1)} kWh op deze dag"),
+                ("vermogen per woning", f"{nl(r.E_nieuw / 24, 2)} kW, vlak")],
+         reken=[f"{nl(p['q_nieuwbouw'])} kWh × {nl(r.gd_ref, 1)} ÷ {nl(p['gd_jaar'])} graaddagen = "
+                f"{nl(r.q_nieuw_ref, 1)} kWh warmte op deze dag",
+                f"{nl(r.q_nieuw_ref, 1)} kWh ÷ COP {nl(p['cop_ae'], 1)} = {nl(r.E_nieuw, 1)} kWh stroom per woning",
+                f"{nl(r.N_nieuw)} woningen × {nl(r.E_nieuw, 1)} kWh = {nl(r.N_nieuw * r.E_nieuw)} kWh"],
+         uitleg="Los van de gekozen warmteoplossing: elke nieuwbouwwoning krijgt een eigen warmtepomp (COP van "
+                "all-electric) en een warmtevraag op het niveau van netbewuste nieuwbouw (alleen ruimteverwarming, "
+                "zoals bij de bestaande woningen). Geen isolatiereductie: nieuwbouw is al goed geïsoleerd. Vlak verloop.",
+         bron="beste inschatting voor netbewuste nieuwbouw (BENG-niveau), nog te onderbouwen · KNMI station 215 "
+              "(graaddagen) · aantal: invoer zijbalk")
+    stap(7, "Warmteoplossingen naast elkaar: vermogen per woning", None, kern=True,
          fig=staven_gestapeld(vergelijk, onderdelen, [k, KLEUR[0], MUTED], "kW per woning"),
          extra=[(o, f"{nl(_piek_per_eenheid(v.E, v.v), 2)} kW per woning ({nl(v.P.max())} kW in de buurt)")
                 for o, v in vergelijk.items()],
          tag=tag("t_ref", *q_par, "cop_ae", "cop_zlt_a", "cop_zlt_b", "t_bron_teo", "t_bron_tea", "t_bron_geo", "eta_bron",
                  "cop_bron_max", "cop_mt_wp", "pomp_w_woning"),
-         uitleg="Dezelfde woning bij elke warmteoplossing, opgebouwd uit de onderdelen. Alle verlopen zijn vlak, dus "
+         uitleg="Dezelfde bestaande woning bij elke warmteoplossing, opgebouwd uit de onderdelen. Alle verlopen zijn vlak, dus "
                 "het vermogen is de hele dag gelijk. ZLT en MT met de gekozen bron of warmteproductie; 'geen' staat er "
                 "niet bij (geen extra woningen).",
          bron="stappen 1 tot en met 5, voor elke warmteoplossing")
     # per woning (genormaliseerd); zonder extra woningen ("geen") blijft het 0
-    p_en_checks(7, r.P / r.N if r.N > 0 else r.P, k, r.checks, naam="Profiel per woning", eenheid="kW per woning", dec=2)
+    per_woning = {"bestaande woning": r.P_bestaand / r.N if r.N > 0 else r.P_bestaand}
+    if r.N_nieuw > 0:
+        per_woning["nieuwbouwwoning"] = 4 * r.E_nieuw * r.v
+    p_en_checks(8, per_woning["bestaande woning"], k, r.checks, naam="Profiel per woning", eenheid="kW per woning", dec=2,
+                fig=lijn(per_woning, [k, KLEUR[0]], "kW per woning", H_GROOT, fmt=",.2f", vlak=len(per_woning) == 1))
     open_punten(OPEN_PUNTEN[3])
     _vast(3)
 

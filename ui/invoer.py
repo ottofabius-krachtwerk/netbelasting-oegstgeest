@@ -47,11 +47,15 @@ ALGEMEEN = {
 }
 
 PER_BUURT = {
-    # extra woningen per type (negatief: sloop); tellen mee in woningen basis, warmteoplossing en thuisbatterij
+    # extra woningen per type (negatief: sloop); tellen mee in woningen basis en thuisbatterij, niet in de warmteoplossing
+    # (tab 3 heeft een eigen invoer voor nieuwbouw)
     "extra_netneutraal": Veld(1, "Extra netneutrale woningen", "aantal in de buurt; geen netbelasting, dus niet in de "
                               "berekening", 0, 0, 5000, 1),
     **{f"extra_woningen_{k}": Veld(1, f"Extra woningen {w.lower()}", "aantal woningen in de buurt; negatief is sloop",
                                    0, -5000, 5000, 1) for w, k in WONINGTYPEN.items()},
+    "extra_nieuwbouw": Veld(3, "Extra nieuwbouwwoningen", "aantal woningen in de buurt, elk met een eigen warmtepomp; "
+                            "los van de extra woningen in tab 1", 0, 0, 5000, 1,
+                            "Warmtevraag per woning: beste inschatting voor netbewuste nieuwbouw, nog te onderbouwen"),
     "wp_aandeel_huidig": Veld(3, "Woningen met nu al een warmtepomp",
                               "% van alle woningen; die gaan niet nog eens over", 0, 0, 100, 1),
     "isolatie_reductie": Veld(3, "Isolatie", "% minder warmtevraag per woning dan nu", 0, 0, 80, 1),

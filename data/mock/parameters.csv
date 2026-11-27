@@ -36,3 +36,4 @@ i_jaar,7,data,Instraling per jaar,1000,"kWh per m² per jaar, horizontaal vlak",
 bat_c,8,aanname,Vermogen per kWh capaciteit,0.5,kW per kWh,0.1,2,0.05,mock,
 bat_eta,8,aanname,Rendement rondgang,0.9,"fractie: 0,9 = 90 % van de geladen energie komt terug",0.5,1,0.01,mock,
 bat_kwp_woning,8,aanname,Zonnepanelen per batterijwoning,4,kWp per woning met batterij,0,15,0.5,mock,
+q_nieuwbouw,3,aanname,Warmtevraag ruimteverwarming nieuwbouwwoning,4000,kWh warmte per woning per jaar,1000,10000,100,placeholder,"beste inschatting voor netbewuste nieuwbouw op BENG-niveau (ruimteverwarming, zonder tapwater); nog te onderbouwen"

@@ -34,10 +34,11 @@ def q_jaar(b, p) -> float:
 
 
 def n_woningen(oplossing: str, b) -> float:
-    """Extra woningen op de warmteoplossing: alle woningen min die nu al een warmtepomp hebben; bij "geen" 0."""
+    """Bestaande woningen die overgaan op de warmteoplossing: alle woningen van nu min die nu al een warmtepomp hebben;
+    bij "geen" 0. De extra woningen uit tab 1 tellen hier niet mee; nieuwbouw heeft een eigen invoer (extra_nieuwbouw)."""
     if oplossing == "geen":
         return 0.0
-    return b["woningen"] * (1 - b["wp_aandeel_huidig"] / 100)
+    return b["woningen_nu"] * (1 - b["wp_aandeel_huidig"] / 100)
 
 
 def cop_dag(oplossing: str, p, mt_opwek: str = MT_STANDAARD) -> float:
@@ -110,6 +111,11 @@ class Resultaat:
     zlt_bron: str = ZLT_STANDAARD
     cop_bron: float = float("nan")  # systeem-COP van de centrale bronwarmtepomp (ZLT); nan = buiten beschouwing
     e_bron: float = 0.0        # kWh stroom per woning per dag voor de centrale bronwarmtepomp (ZLT)
+    # nieuwbouw: eigen warmtepomp (COP all-electric), warmtevraag volgens netbewuste nieuwbouw; telt mee in P
+    N_nieuw: float = 0.0
+    q_nieuw_ref: float = 0.0   # kWh warmte per nieuwbouwwoning op deze dag
+    E_nieuw: float = 0.0       # kWh stroom per nieuwbouwwoning op deze dag
+    P_bestaand: np.ndarray | None = None  # profiel van de bestaande woningen; P = P_bestaand + nieuwbouw
 
 
 def bereken(b, p, dag, prof, oplossing: str | None = None,
@@ -130,10 +136,14 @@ def bereken(b, p, dag, prof, oplossing: str | None = None,
     c_bron = cop_bron(zlt_bron, p) if oplossing == "ZLT" else float("nan")
     e_bron = 0.0 if np.isnan(c_bron) or np.isnan(c) else q_ref * (1 - 1 / c) / c_bron
     E = e_wp + e_bron + e_p
+    # nieuwbouw, los van de gekozen warmteoplossing: eigen warmtepomp, geen isolatiereductie (al op nieuwbouwniveau)
+    N_nieuw = float(b.get("extra_nieuwbouw", 0.0))
+    q_nieuw_ref = p["q_nieuwbouw"] * gd_ref / p["gd_jaar"]
+    E_nieuw = q_nieuw_ref / p["cop_ae"]
     v = np.full(len(T), 1 / len(T))  # vlak: all-electric (Heat Geek) en warmtenetten (voorlopig)
     vorm_bron = "vlak" if oplossing in ("geen", "all-electric") else "constant"
     P = p_kw(N, E, v)
-    checks = checks_standaard(P, N, E, v, +1) + [
+    checks = checks_standaard(P, N, E, v, +1) + [  # checks op de bestaande woningen
         Check("Warmtevraag per jaar positief (Q_jaar > 0)", f"{nl(Q)} kWh", "> 0", Q > 0),
     ]
     if oplossing in TECH:
@@ -144,8 +154,9 @@ def bereken(b, p, dag, prof, oplossing: str | None = None,
         lo, hi = p["cop_min_bron"], p["cop_max_bron"]
         checks.append(Check(f"COP bronwarmtepomp ({zlt_bron}) binnen controlebereik", nl(c_bron, 2),
                             f"{nl(lo, 1)} tot {nl(hi, 1)}", lo <= c_bron <= hi))
+    P_bestaand, P = P, P + p_kw(N_nieuw, E_nieuw, v)  # nieuwbouw ook vlak
     return Resultaat(oplossing, N, b["gas_m3_per_woning"], p["gas_tapwater_koken_m3"], q_jaar_gas(b, p),
                      Q, gd_ref,
                      q_ref, T, vorm_bron, c, e_wp, e_p, E, v, P, checks, pomp_invoer,
-                     float(b["woningen"]), float(b["wp_aandeel_huidig"]), mt_opwek, gas * 100, N * q_ref / 24,
-                     zlt_bron, c_bron, e_bron)
+                     float(b["woningen_nu"]), float(b["wp_aandeel_huidig"]), mt_opwek, gas * 100, N * q_ref / 24,
+                     zlt_bron, c_bron, e_bron, N_nieuw, q_nieuw_ref, E_nieuw, P_bestaand)

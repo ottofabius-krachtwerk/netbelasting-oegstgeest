@@ -97,7 +97,7 @@ with st.sidebar:
         if kaart == 3:
             b["warmteoplossing"] = _keuze(st.selectbox, f"Warmteoplossing{bij}", WARMTEOPLOSSINGEN,
                                           invoer.WARMTEOPLOSSING, f"{bron}:warmteoplossing:{code}")
-            for naam in ("wp_aandeel_huidig", "isolatie_reductie"):
+            for naam in ("extra_nieuwbouw", "wp_aandeel_huidig", "isolatie_reductie"):
                 b[naam] = _veld(naam, invoer.PER_BUURT[naam], per_buurt=True)
             wo = b["warmteoplossing"]
             keuzes["mt_opwek"] = _keuze(st.radio, f"Warmteproductie MT-net 70 °C{bij}", k3_warmtepomp.MT_OPWEK,
@@ -137,8 +137,8 @@ with st.sidebar:
 
     def _relevant(naam: str) -> bool:
         """Invoer van de warmtepomptab alleen tonen als die bij de gekozen warmteoplossing hoort."""
-        if naam == "cop_ae":  # ook bij "geen": de vergelijking toont all-electric
-            return b["warmteoplossing"] in ("geen", "all-electric")
+        if naam == "cop_ae":  # ook bij "geen" (de vergelijking toont all-electric) en voor de warmtepompen in nieuwbouw
+            return b["warmteoplossing"] in ("geen", "all-electric") or b["extra_nieuwbouw"] > 0
         if naam == "cop_mt_wp":
             return b["warmteoplossing"] == "MT" and keuzes["mt_opwek"] in k3_warmtepomp.MT_COP
         if naam == "t_net_zlt":
@@ -168,6 +168,7 @@ with st.sidebar:
         b[f"woningen_{k}_nu"] = float(b[f"woningen_{k}"])
         b[f"woningen_{k}"] = max(0.0, b[f"woningen_{k}_nu"] + b[f"extra_woningen_{k}"])
     b["woningen"] = sum(b[f"woningen_{k}"] for k in WONINGTYPEN.values())
+    b["woningen_nu"] = sum(b[f"woningen_{k}_nu"] for k in WONINGTYPEN.values())  # tab 3: zonder de extra woningen
 
     def _status(*namen: str) -> str:
         """Status van data en aannames; invoervelden zijn keuzes en tellen niet mee."""
@@ -227,6 +228,7 @@ e_kaart = {kaartnaam(k): (float((r.sectoren["teken"] * r.sectoren["E"]).sum()) i
                           float(r.N * r.v.sum() / 4) if k == 8 else
                           r.e_dag if k == 1 else
                           sum(kl.N * kl.E for kl in r.klassen.values()) if k == 5 else
+                          r.N * r.E + r.N_nieuw * r.E_nieuw if k == 3 else
                           (-1 if k == 7 else 1) * r.N * r.E) for k, r in IN_STAPEL.items()}
 rs = stapeling.bereken(P_kaart, e_kaart, sigma=r4.sigma)  # spreiding: alleen laden personenauto's
 if t[8].open:
