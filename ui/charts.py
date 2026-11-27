@@ -28,6 +28,7 @@ def _opmaak(fig: go.Figure, hoogte: int, eenheid: str = "", tijdas: bool = True,
         fig.update_xaxes(range=[0, 24], tickvals=list(range(0, 25, 6)),
                          ticktext=[f"{u:02d}:00" for u in range(0, 25, 6)])
         fig.update_layout(hovermode="x unified")
+        fig.update_xaxes(unifiedhovertitle=dict(text=" "))  # geen x-waarde (uren als getal) bovenin de hover
     return fig
 
 
@@ -88,9 +89,7 @@ def waterval(labels, waarden, maten, eenheid: str = "", hoogte: int = H_KLEIN) -
 def gestapeld(reeksen: dict, kleuren, eenheid: str = "kW", hoogte: int = H_GROOT, totaal=None,
               grens: tuple[str, np.ndarray] | None = None) -> go.Figure:
     fig = go.Figure()
-    for (naam, y), k in zip(reeksen.items(), kleuren):
-        fig.add_bar(x=UUR + 0.125, y=np.asarray(y), name=naam, marker_color=k, width=0.25,
-                    hovertemplate=f"%{{y:,.0f}} {eenheid}<extra>{naam}</extra>")
+    # totaal en grens eerst, zodat ze bovenaan de hover (en de legenda) staan
     if totaal is not None:
         fig.add_scatter(x=UUR + 0.125, y=np.asarray(totaal), name="Totaal", mode="lines",
                         line=dict(color=INKT, width=2), hovertemplate=f"%{{y:,.0f}} {eenheid}<extra>Totaal</extra>")
@@ -98,6 +97,9 @@ def gestapeld(reeksen: dict, kleuren, eenheid: str = "kW", hoogte: int = H_GROOT
         fig.add_scatter(x=UUR + 0.125, y=np.asarray(grens[1]), name=grens[0], mode="lines",
                         line=dict(color=INKT, width=1.5, dash="dot"),
                         hovertemplate=f"%{{y:,.0f}} {eenheid}<extra>{grens[0]}</extra>")
+    for (naam, y), k in zip(reeksen.items(), kleuren):
+        fig.add_bar(x=UUR + 0.125, y=np.asarray(y), name=naam, marker_color=k, width=0.25,
+                    hovertemplate=f"%{{y:,.0f}} {eenheid}<extra>{naam}</extra>")
     fig.update_layout(barmode="relative", bargap=0)
     return _opmaak(fig, hoogte, eenheid, legenda=True)
 
