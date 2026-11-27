@@ -536,7 +536,7 @@ def kaart6(r: k6_mkb.Resultaat, p, tag) -> None:
 
 def stapeling(r: stapeling_model.Resultaat, kleuren: list[str]) -> None:
     i = r.i_piek
-    _kop(9)
+    _kop(9, extra="Deze tab is slechts een optelsom van de profielen van de losse onderdelen.")
     _formule("Profiel van de buurt = de profielen van alle tabs opgeteld",
              "P_buurt[t] = Σ P[t]")
     j = r.i_piek95

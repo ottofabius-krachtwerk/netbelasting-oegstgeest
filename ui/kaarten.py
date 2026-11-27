@@ -65,7 +65,7 @@ def meta(kaart: int) -> tuple[str, str]:
             "open (Essent batterijwaardering, literatuur, NL Flex) · day-ahead prijs: EPEX NL, gemiddelde 5 koudste "
             "werkdagen winter 2025/26 (Energy Quantified)"),
         9: (f"profielen uit alle tabs (1 tot en met 8); verbruik min de opwek uit tab {t(7)} geeft het netto profiel",
-            "geen eigen bronnen"),
+            ""),  # geen eigen bronnen; de tab toont daarom een losse zin (zie ui/tabs.py, stapeling)
     }[kaart]
 
 

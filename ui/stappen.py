@@ -121,13 +121,14 @@ def _met_links(bron: str) -> str:
 
 def kop(invoer: str, bronnen: str, extra: str = "") -> None:
     """Bovenaan een tab: invoer en bronnen. De status van de methodiek staat in de kleur van de tabtitel."""
-    eerste = f"{extra}<br>" if extra else ""
+    eerste = f"{extra}<br>" if extra and bronnen else extra
     # bronnen onder elkaar: één regel per bron (in meta gescheiden door " · ")
     lijst = ("<ul style='margin:.1rem 0 0 1rem;padding:0'>"
              + "".join(f"<li>{_met_links(x)}</li>" for x in bronnen.split(" · ")) + "</ul>")
     invoerregel = "" if COMPACT else f"<b>Invoer</b> {invoer}<br>"
+    bronregel = f"<b>Bronnen</b>{lijst}" if bronnen else ""  # zonder eigen bronnen geen kopje
     st.markdown(f"<div style='margin:-.2rem 0 .7rem;font-size:.82rem;color:#52514e;line-height:1.5'>{eerste}"
-                f"{invoerregel}<b>Bronnen</b>{lijst}</div>", unsafe_allow_html=True)
+                f"{invoerregel}{bronregel}</div>", unsafe_allow_html=True)
 
 
 def banner(status: str, tekst: str) -> None:
