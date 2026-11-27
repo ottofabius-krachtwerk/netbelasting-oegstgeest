@@ -73,7 +73,7 @@ with st.sidebar:
             for naam in ("wp_aandeel_huidig", "isolatie_reductie"):
                 b[naam] = _veld(naam, invoer.PER_BUURT[naam], per_buurt=True)
             wo = b["warmteoplossing"]
-            keuzes["pomp_invoer"], keuzes["wp_vorm"] = k3_warmtepomp.POMPINVOER[0], k3_warmtepomp.VORMEN[0]
+            keuzes["pomp_invoer"] = k3_warmtepomp.POMPINVOER[0]
             keuzes["mt_opwek"] = k3_warmtepomp.MT_STANDAARD
             keuzes["zlt_bron"] = k3_warmtepomp.ZLT_STANDAARD
             b["pomp_kw_buurt"] = invoer.ALGEMEEN["pomp_w_woning"].standaard * b["woningen"] / 1000
@@ -97,11 +97,6 @@ with st.sidebar:
                     b["pomp_kw_buurt"] = st.number_input(f"Totaal pompvermogen warmtenet {buurt} (kW, constant)", 0.0,
                                                          5000.0, float(b["pomp_kw_buurt"]), 5.0,
                                                          key=f"{bron}:pomp_kw_buurt:{code}")
-            else:  # alleen bij warmtepompen in de woning
-                keuzes["wp_vorm"] = st.radio("Verloop warmtepomp", k3_warmtepomp.VORMEN, horizontal=True,
-                                             format_func=lambda v: {"vlak": "vlak (ondergrens)",
-                                                                    "gemeten": "gemeten aggregaat"}[v],
-                                             key=f"{bron}:wpvorm")
         elif kaart == 4:  # prognose: totaal aantal EV's in de buurt, één scenario voor alle buurten
             keuzes["ev_scenario"] = st.radio("Prognose elektrische personenauto's", EV_SCENARIOS, horizontal=True,
                                              index=EV_SCENARIOS.index(invoer.EV_SCENARIO), key=f"{bron}:ev_scenario")
@@ -147,7 +142,7 @@ with st.sidebar:
         """Status van data en aannames; invoervelden zijn keuzes en tellen niet mee."""
         return data.status(*[n for n in namen if n not in invoer.NAMEN])
 
-    wp_vorm, bat_modus = keuzes["wp_vorm"], keuzes["bat_modus"]
+    bat_modus = keuzes["bat_modus"]
     p["bat_kwh"] = keuzes["bat_kwh"]
 
 dag, prof = data.dag, data.profielen
@@ -160,9 +155,9 @@ st.markdown(kop + ("  :gray-badge[mockdata]" if bron == "mock" else ""))
 
 # Tabkeuze met rerun: de zijbalk opent de groep van de gekozen tab, en alleen die tab wordt opgebouwd
 t = dict(zip(TABLABEL, st.tabs(list(TABLABEL.values()), key="tabkeuze", on_change="rerun")))
-r3 = k3_warmtepomp.bereken(b, p, dag, prof, wp_vorm=wp_vorm, pomp_invoer=keuzes["pomp_invoer"], mt_opwek=keuzes["mt_opwek"],
+r3 = k3_warmtepomp.bereken(b, p, dag, prof, pomp_invoer=keuzes["pomp_invoer"], mt_opwek=keuzes["mt_opwek"],
                             zlt_bron=keuzes["zlt_bron"])
-varianten = {o: k3_warmtepomp.bereken(b, p, dag, prof, o, wp_vorm, keuzes["pomp_invoer"], keuzes["mt_opwek"], keuzes["zlt_bron"])
+varianten = {o: k3_warmtepomp.bereken(b, p, dag, prof, o, keuzes["pomp_invoer"], keuzes["mt_opwek"], keuzes["zlt_bron"])
              for o in WARMTEOPLOSSINGEN}
 r4 = k4_laden_auto.bereken(b, p, prof)
 r7 = k7_zon.bereken(b, p, dag)

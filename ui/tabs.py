@@ -10,9 +10,9 @@ from model import stapeling as stapeling_model
 from model.common import nl
 from model.data import WONINGTYPEN
 from ui.charts import H_GROOT, KLEUR, MUTED, TIJD, balans, gestapeld, lijn, staven, waterval
-from ui.kaarten import kaartnaam, kleur, kn, meta
+from ui.kaarten import OPEN_PUNTEN, kaartnaam, kleur, kn, meta
 from ui import stappen
-from ui.stappen import badge, kop, p_en_checks, stap
+from ui.stappen import badge, kop, open_punten, p_en_checks, stap
 
 VERLOOP = "% van de dag per kwartier"
 VASTE_WAARDEN = None  # parameters-tabel; gezet door app.py
@@ -138,6 +138,7 @@ def kaart1(r: k1_basis.Resultaat, p, tag) -> None:
                        f"hoogste kwartier {_hoogste(r.v)}: {nl(r.v.max() * 100, 2)} % van de dag → "
                        f"4 × {nl(r.e_dag)} kWh × {nl(r.v.max() * 100, 2)} % = {nl(r.P.max())} kW",
                        "groei van het huishoudelijk verbruik: het hele profiel schaalt mee (zelfde verloop)"])
+    open_punten(OPEN_PUNTEN[1])
     _vast(1)
 
 
@@ -183,24 +184,17 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
          uitleg="Jaarlijkse warmtevraag × graaddagen van deze dag ÷ graaddagen per jaar, minus isolatie. We nemen een "
                 f"constante buitentemperatuur van {nl(p['t_ref'])} °C aan voor deze dag.",
          bron="aanname (buitentemperatuur) · KNMI station 215 (graaddagen 2025) · isolatie: invoer zijbalk")
-    if r.band:
-        stap(4, "Verloop over de dag: bandbreedte", r.vorm_bron, "gebruikt (keuze in de zijbalk)",
-             lijn({n: _pct(vv) for n, (vv, _) in r.band.items()}, [k, MUTED], VERLOOP, fmt=".2f"),
-             extra=[(f"piek {n}", f"{nl(_piek_per_eenheid(r.E, vv), 2)} kW per woning "
-                     + ("constant" if np.ptp(vv) == 0 else f"om {TIJD[int(np.argmax(vv))]}"))
-                    for n, (vv, _) in r.band.items()],
-             tag=tag("wp_aggregaat"),
-             uitleg="Hoe de stroom over de dag valt, hangt af van buffering in woning en installatie. Vlak: maximale "
-                    "buffering (laagste piek). Gemeten aggregaat: het opgetelde profiel van veel warmtepompen op een "
-                    "koude winterdag, met een ochtendpiek na de nachtverlaging.",
-         bron="gemeten aggregaatprofiel warmtepompen (mock; bron open) · vlak: aanname")
-    else:
-        stap(4, "Verloop over de dag: constant", None,
-             lijn({"verloop": _pct(r.v)}, [k], VERLOOP, fmt=".2f"),
-             extra=[("elk kwartier", f"{nl(r.v[0] * 100, 2)} % van de dag")],
-             uitleg="Voor warmtenetten nemen we voorlopig een constant verloop aan. Mogelijke bron voor een profiel: "
-                    "meetdata van warmtenetten of van de Installatiemonitor (RVO/BDH; nu alleen dagwaarden gepubliceerd).",
-         bron="aanname (constant)")
+    wn = r.oplossing in ("ZLT", "MT")
+    stap(4, "Verloop over de dag: vlak", None,
+         lijn({"verloop": _pct(r.v)}, [k], VERLOOP, fmt=".2f"),
+         extra=[("elk kwartier", f"{nl(r.v[0] * 100, 2)} % van de dag"),
+                ("piek", f"{nl(_piek_per_eenheid(r.E, r.v), 2)} kW per woning")],
+         uitleg=("Voor warmtenetten nemen we voorlopig een constant verloop aan. Mogelijke bron voor een profiel: "
+                 "meetdata van warmtenetten of van de Installatiemonitor (RVO/BDH; nu alleen dagwaarden gepubliceerd)."
+                 if wn else
+                 "De warmtepompen draaien op deze koude dag gelijkmatig over de dag: met buffering in woning en "
+                 "installatie valt er geen ochtendpiek."),
+         bron="aanname (constant)" if wn else "besluit na overleg met heatgeeks (november 2026)")
     extra6 = []
     if not np.isnan(r.cop):
         naam6 = {"ZLT": "booster", "MT": "collectieve warmtepomp"}.get(r.oplossing, "warmtepomp")
@@ -262,17 +256,14 @@ def kaart3(r: k3_warmtepomp.Resultaat, varianten: dict, p, tag, p_isolatie: floa
          extra=[(o, f"{nl(v.P.max())} kW ({nl(_piek_per_eenheid(v.E, v.v), 2)} kW per woning)")
                 for o, v in varianten.items()],
          tag=tag("t_ref", *q_par, "cop_ae", "cop_zlt_a", "cop_zlt_b", "t_bron_teo", "t_bron_tea", "t_bron_geo", "eta_bron",
-                 "cop_bron_max", "cop_mt_wp", "pomp_w_woning", "wp_aggregaat"),
+                 "cop_bron_max", "cop_mt_wp", "pomp_w_woning"),
          uitleg="Dezelfde buurt bij elke warmteoplossing; bij 'geen' komen er geen woningen bij (0 kW). ZLT en MT "
                 "met de gekozen bron of warmteproductie.",
          bron="stappen 1 tot en met 5, voor elke warmteoplossing")
-    fig = None
     n = r.N if r.N > 0 else 1.0  # per woning (genormaliseerd); zonder extra woningen ("geen") blijft het 0
     eenh = "kW per woning" if r.N > 0 else "kW"
-    if r.band:
-        fig = lijn({f"{nm}{' (gebruikt)' if nm == r.vorm_bron else ''}": P / n for nm, (_, P) in r.band.items()},
-                   [k if nm == r.vorm_bron else MUTED for nm in r.band], eenh, H_GROOT, fmt=",.2f")
-    p_en_checks(7, r.P / n, k, r.checks, fig=fig, eenheid=eenh, dec=2)
+    p_en_checks(7, r.P / n, k, r.checks, eenheid=eenh, dec=2)
+    open_punten(OPEN_PUNTEN[3])
     _vast(3)
 
 
@@ -336,6 +327,7 @@ def kaart4(r: k4_laden_auto.Resultaat, p, tag, scenario: str, jaar: int) -> None
          bron="ElaadNL gegenereerde laadpuntprofielen 2025 (spreiding per laadpunt over laadpunten en werkdagen)")
     p_en_checks(6, r.P, k, r.checks,
                 fig=lijn({"verwacht": r.P, "95 %-grens": r.P95}, [k, k], "kW", H_GROOT, fmt=",.1f", stippel=("95 %-grens",)))
+    open_punten(OPEN_PUNTEN[4])
     _vast(4)
 
 
@@ -376,6 +368,7 @@ def kaart7(r: k7_zon.Resultaat, p, tag) -> None:
                 "volgen hetzelfde verloop (aanname: geen verschil in ligging).",
          bron="KNMI station 215 (instraling per uur, 18-02-2025)")
     p_en_checks(4, r.P, k, r.checks)
+    open_punten(OPEN_PUNTEN[7])
     _vast(7)
 
 
@@ -417,6 +410,7 @@ def kaart2(r: k2_koken.Resultaat, tag) -> None:
              "ECN-notitie ECN-N--14-024 (ECN voor RVO, 2014): 211 kWh per jaar · Milieu Centraal: inductie 175 kWh per "
              "jaar · afgerond 200 kWh per jaar",
              "RAMP-kookprofielen NL (Lombardi en Pickering, TU Delft/ETH, Zenodo 6579421, 2022) · middagpiek: aanname"))
+    open_punten(OPEN_PUNTEN[2])
     _vast(2)
 
 
@@ -448,6 +442,7 @@ def kaart5(r: k5_logistiek.Resultaat, p, tag) -> None:
          bron="aanname (schetsprofielen) · later: laadprofiel logistiek uit een bron (te bevestigen)")
     p_en_checks(4, r.P, kleur(5), r.checks, naam="Profiel per voertuigtype",
                 fig=gestapeld({n: k.P for n, k in kl.items()}, kleuren, totaal=r.P))
+    open_punten(OPEN_PUNTEN[5])
     _vast(5)
 
 
@@ -476,6 +471,7 @@ def kaart6(r: k6_mkb.Resultaat, p, tag) -> None:
                 "de dag nemen we een vlak verbruik aan.",
          bron="aanname (vlak, alleen werkdagen) · kalender 2025")
     p_en_checks(3, r.P_tot, kleur(6), r.checks, naam="Verbruik over de dag")
+    open_punten(OPEN_PUNTEN[6])
     _vast(6)
 
 
@@ -517,6 +513,7 @@ def stapeling(r: stapeling_model.Resultaat, kleuren: list[str]) -> None:
          bron="de profielen van de tabs")
     p_en_checks(5, r.P_tot, KLEUR[0], r.checks, naam="Profiel van de buurt",
                 fig=gestapeld(r.P, kleuren, totaal=r.P_tot))
+    open_punten(OPEN_PUNTEN[9])
 
 
 def kaart8(r: k8_batterij.Resultaat, p, tag) -> None:
@@ -575,4 +572,5 @@ def kaart8(r: k8_batterij.Resultaat, p, tag) -> None:
          uitleg="Hoe vol de batterij is over de dag; de grijze lijn is het deel dat uit het net is ingekocht.",
          bron="stap 5")
     p_en_checks(7, r.P, k, r.checks)
+    open_punten(OPEN_PUNTEN[8])
     _vast(8)

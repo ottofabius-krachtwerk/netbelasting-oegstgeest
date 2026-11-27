@@ -53,7 +53,7 @@ def meta(kaart: int) -> tuple[str, str]:
             "de buurt) · warmteproductie MT-net (collectieve warmtepomp of buiten de buurt) · aandeel gasgestuurde "
             "piek- en backupvoorziening",
             "Klimaatmonitor (gas per woningtype, woningen) · KNMI station 215 (graaddagen 2025) · "
-            "buitentemperatuur: aanname −10 °C · verloop: vlak tot gemeten aggregaatprofiel warmtepompen (mock) · "
+            "buitentemperatuur: aanname −10 °C · verloop: vlak (afgestemd met heatgeeks) · "
             "COP: open"),
         1: (f"woningen en netto verbruik per woningtype · jaaropwek huidige zon bij woningen (alleen voor netto naar "
             f"bruto; de opwek zelf staat in tab {t(7)}) · NEDU-profiel · huidige warmtepompen en EV's zitten in het netto "
@@ -67,3 +67,34 @@ def meta(kaart: int) -> tuple[str, str]:
         9: (f"profielen uit alle tabs (1 tot en met 8); verbruik min de opwek uit tab {t(7)} geeft het netto profiel",
             "geen eigen bronnen"),
     }[kaart]
+
+
+# Openstaande punten per tab (bordnummer; 9 is stapeling), onderaan elke tab in beide weergaven. Kort en in gewone taal.
+OPEN_PUNTEN = {
+    1: ["Nagaan of de Klimaatmonitor het netto verbruik per woning op 0 afkapt (dan is het bruto verbruik te hoog)",
+        "Aandeel woningen met warmtepomp of EV in de NEDU-steekproef (2021 tot 2023)",
+        "Zelfde jaar voor zonopwek (Zonnedakje) en netto verbruik",
+        "Gemengde panden in Zonnedakje: verdelen naar oppervlakte of toewijzen aan de grootste functie"],
+    2: ["Verlaagde middagpiek (12,5 % van de dag) is een aanname",
+        "Standaardwaarden voor 2035 en 2050 bevestigen"],
+    3: ["COP's van all-electric, ZLT-booster, collectieve warmtepomp en bronwarmtepomp onderbouwen (bron open)",
+        "Pompvermogen warmtenet (100 W per woning) verifiëren",
+        "Warmtenetten: verloop nu constant, nog geen warmteverlies in het net",
+        "Ontwerpdag met constant −10 °C is een aanname"],
+    4: ["Laadenergie per auto per werkdag onderbouwen",
+        "Aandeel publiek laden (40 %) is een aanname",
+        "Aantal EV's in 2025: bronbestand en Klimaatmonitor verschillen",
+        "Slim thuisladen (vlak van 01:00 tot 06:00) is een aanname"],
+    5: ["Laadenergie per bestelbus (40 kWh) en per truck (150 kWh) zijn placeholders",
+        "Laadprofielen per voertuigtype uit een bron halen"],
+    6: ["Verdeling over de buurten is nu gelijk; verfijnen met CBS-wijkdata of BAG-gebruiksoppervlak",
+        "Verwarming van niet-woningen nog uitwerken",
+        "Verloop over de dag is vlak (aanname)"],
+    7: ["Keuze ontwerpdag: zonnige echte dag of bewolkte dag",
+        "Instraling per jaar naar KNMI (1.220 kWh/m²)",
+        "Zonnedakje: potentie in kWh of kWp, en of 'resterend' de huidige panelen uitsluit"],
+    8: ["Energiebelasting meenemen bij laden uit het net (groter dan het prijsverschil)",
+        "Batterijparameters en adoptiegraad onderbouwen"],
+    9: ["Spreiding (95 %-grens) nu alleen voor laden personenauto's",
+        "Standaardwaarden voor 2035 en 2050 zijn voorlopig"],
+}
