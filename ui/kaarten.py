@@ -71,16 +71,12 @@ def meta(kaart: int) -> tuple[str, str]:
 
 # Openstaande punten per tab (bordnummer; 9 is stapeling), onderaan elke tab in beide weergaven. Kort en in gewone taal.
 OPEN_PUNTEN = {
-    1: ["Nagaan of de Klimaatmonitor het netto verbruik per woning op 0 afkapt (dan is het bruto verbruik te hoog)",
-        "Aandeel woningen met warmtepomp of EV in de NEDU-steekproef (2021 tot 2023)",
-        "Zelfde jaar voor zonopwek (Zonnedakje) en netto verbruik",
-        "Gemengde panden in Zonnedakje: verdelen naar oppervlakte of toewijzen aan de grootste functie"],
-    2: ["Verlaagde middagpiek (12,5 % van de dag) is een aanname",
-        "Standaardwaarden voor 2035 en 2050 bevestigen"],
+    1: ["Aandeel woningen met warmtepomp of EV in de NEDU-steekproef (2021 tot 2023)",
+        "Nagaan of gemengde panden (deels wonen) in het bronbestand bij wonen zijn ingedeeld; dat is de gekozen regel"],
+    2: [],
     3: ["Warmtevraag nieuwbouwwoning (4.000 kWh per jaar) is een beste inschatting; onderbouwen met netbewuste nieuwbouw",
-        "COP's van all-electric, ZLT-booster, collectieve warmtepomp en bronwarmtepomp onderbouwen (bron open)",
         "Pompvermogen warmtenet (100 W per woning) verifiëren",
-        "Warmtenetten: verloop nu constant, nog geen warmteverlies in het net",
+        "Warmteverlies bij transport in warmtenetten is nog niet meegenomen",
         "Ontwerpdag met constant −10 °C is een aanname"],
     4: ["Laadenergie per auto per werkdag onderbouwen",
         "Aandeel publiek laden (40 %) is een aanname",

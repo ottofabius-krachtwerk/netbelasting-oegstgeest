@@ -107,19 +107,15 @@ def kaart1(r: k1_basis.Resultaat, p, tag) -> None:
                 "verbruik bevat ook de huidige warmtepompen en het thuisladen van de huidige EV's. Tab "
                 f"{kn(3)} rekent alleen de toename; tab {kn(4)} rekent alle EV's, daarom gaat hun thuisladen er in "
                 "stap 4 af.",
-         bron="Klimaatmonitor (netto levering per woningtype, PC6, 2025) × CBS (woningen per woningtype)",
-         noot="nagaan of de Klimaatmonitor het netto verbruik per woning op 0 afkapt, zoals CBS 81528NED. Dan wordt "
-              "het bruto verbruik in stap 4 te hoog bij woningen die meer opwekken dan ze verbruiken; te controleren "
-              "met de opwek per woningtype uit Zonnedakje.")
+         bron="Klimaatmonitor (netto levering per woningtype, PC6, 2025) × CBS (woningen per woningtype)")
     stap(3, "Bruto zonopwek huidige panelen per jaar", nl(r.e_zon_bruto / 1e3), "MWh/jaar", tag=tag("buurten"),
          uitleg="Alle opwek van de huidige panelen bij woningen, ook wat de woningen zelf gebruiken. Dit jaargetal is "
                 "alleen nodig om van netto naar bruto verbruik te gaan; de opwek zelf (huidig en extra) staat als "
                 f"profiel in tab {kn(7)}.",
          bron="Zonnedakje (jaaropwek per pand, alleen woningen)",
-         noot="Zonnedakje geeft alle daken; hier tellen alleen woningen (BAG-gebruiksdoel woonfunctie, staat al in "
-              "Zonnedakje). Gemengde panden: verdelen naar gebruiksoppervlakte per functie of toewijzen aan de "
-              f"grootste functie (keuze open). De opwek op de overige daken staat in tab {kn(7)}. Zelfde jaar als het netto "
-              "verbruik (2025) en de opwek van geplaatste panelen, niet het dakpotentieel.")
+         noot="Zonnedakje geeft alle daken; hier tellen alleen woningen (BAG-gebruiksdoel woonfunctie). Gemengde "
+              "panden die deels wonen zijn, horen bij wonen; nagaan of het bronbestand dat zo indeelt. De opwek op de "
+              f"overige daken staat in tab {kn(7)}.")
     thuis = 100 - p["publiek_aandeel"]
     stap(4, "Bruto huishoudelijk jaarverbruik", nl(r.e_jaar_buurt / 1e3), "MWh/jaar",
          tag=tag("buurten", "ev_e_dag"),
