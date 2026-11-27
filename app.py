@@ -56,6 +56,23 @@ with st.sidebar:
     # compact: korte labels zonder buurtnaam (die staat bovenaan)
     bij = "" if COMPACT else f" ({buurt})"
     keuzes = {}
+    # Streamlit wist de waarde van een veld dat even niet getoond wordt (andere warmteoplossing, andere buurt). Daarom
+    # bewaren we elke waarde ook zelf; een veld start met de bewaarde waarde en verborgen velden rekenen ermee door.
+    bewaard = st.session_state.setdefault("bewaard", {})
+
+    def _onthoud(sleutel: str, waarde):
+        bewaard[sleutel] = waarde
+        return waarde
+
+    def _keuze(widget, label: str, opties, standaard, sleutel: str, toon: bool = True, **kw):
+        """Radio of selectbox die de keuze onthoudt; verborgen (toon=False): de bewaarde keuze of de standaard."""
+        gekozen = bewaard.get(sleutel, standaard)
+        if not toon:
+            return gekozen
+        return _onthoud(sleutel, widget(label, opties, index=list(opties).index(gekozen), key=sleutel, **kw))
+
+    def _sleutel(naam: str, per_buurt: bool) -> str:
+        return f"{bron}:{jaar}:{naam}:{code}" if per_buurt else f"{bron}:{jaar}:{naam}"
 
     def _veld(naam: str, v: invoer.Veld, per_buurt: bool = False, standaard: float | None = None) -> float:
         """Eén invoerveld; per-buurt-velden hebben de buurtnaam in het label en een eigen sleutel per buurt.
@@ -68,9 +85,9 @@ with st.sidebar:
             label = f"{v.label} {buurt} ({v.eenheid})" if per_buurt else f"{v.label} ({v.eenheid})"
             uitleg = v.uitleg
         start = invoer.standaard(naam, v, jaar) if standaard is None else standaard
-        return st.number_input(label, float(v.min), float(v.max), float(start), float(v.stap),
-                               key=f"{bron}:{jaar}:{naam}:{code}" if per_buurt else f"{bron}:{jaar}:{naam}",
-                               help=uitleg or None)
+        sleutel = _sleutel(naam, per_buurt)
+        return _onthoud(sleutel, st.number_input(label, float(v.min), float(v.max), float(bewaard.get(sleutel, start)),
+                                                 float(v.stap), key=sleutel, help=uitleg or None))
 
     def _keuzes(kaart: int) -> None:
         """Keuzes en per-buurt-invoer die bij één tab horen, bovenaan de groep van die tab."""
@@ -78,37 +95,30 @@ with st.sidebar:
             if v.kaart == kaart and kaart != 3:
                 b[naam] = _veld(naam, v, per_buurt=True)
         if kaart == 3:
-            b["warmteoplossing"] = st.selectbox(f"Warmteoplossing{bij}", WARMTEOPLOSSINGEN,
-                                                index=WARMTEOPLOSSINGEN.index(invoer.WARMTEOPLOSSING),
-                                                key=f"{bron}:warmteoplossing:{code}")
+            b["warmteoplossing"] = _keuze(st.selectbox, f"Warmteoplossing{bij}", WARMTEOPLOSSINGEN,
+                                          invoer.WARMTEOPLOSSING, f"{bron}:warmteoplossing:{code}")
             for naam in ("wp_aandeel_huidig", "isolatie_reductie"):
                 b[naam] = _veld(naam, invoer.PER_BUURT[naam], per_buurt=True)
             wo = b["warmteoplossing"]
-            keuzes["pomp_invoer"] = k3_warmtepomp.POMPINVOER[0]
-            keuzes["mt_opwek"] = k3_warmtepomp.MT_STANDAARD
-            keuzes["zlt_bron"] = k3_warmtepomp.ZLT_STANDAARD
-            b["pomp_kw_buurt"] = invoer.ALGEMEEN["pomp_w_woning"].standaard * b["woningen"] / 1000
-            if wo == "MT":
-                keuzes["mt_opwek"] = st.radio(f"Warmteproductie MT-net 70 °C{bij}", k3_warmtepomp.MT_OPWEK,
-                                              index=k3_warmtepomp.MT_OPWEK.index(k3_warmtepomp.MT_STANDAARD),
-                                              format_func=lambda o: {"buiten beschouwing": "warmteproductie is buiten "
-                                                                     "de buurt"}.get(o, f"{o} naar 70 °C"),
-                                              key=f"{bron}:mtopwek:{code}")
-            if wo == "ZLT":
-                keuzes["zlt_bron"] = st.radio(f"Warmtebron ZLT-net{bij}", k3_warmtepomp.ZLT_BRON,
-                                              index=k3_warmtepomp.ZLT_BRON.index(k3_warmtepomp.ZLT_STANDAARD),
-                                              format_func=lambda o: {"buiten beschouwing": "bron is buiten de buurt "
-                                                                     "(bronstroom telt niet mee)"}.get(o, f"{o} + "
-                                                                                                          "centrale bronwarmtepomp"),
-                                              key=f"{bron}:zltbron:{code}")
-            if wo in ("ZLT", "MT"):  # alleen bij een warmtenet
-                keuzes["pomp_invoer"] = st.radio("Pompvermogen warmtenet opgeven als", k3_warmtepomp.POMPINVOER,
-                                                 horizontal=True, key=f"{bron}:pompinvoer")
-                if keuzes["pomp_invoer"] == "totaal buurt":  # standaard: het pompvermogen per woning × woningen
-                    b["pomp_kw_buurt"] = st.number_input("Totaal pompvermogen warmtenet (kW, constant)" if COMPACT else
-                                                         f"Totaal pompvermogen warmtenet {buurt} (kW, constant)", 0.0,
-                                                         5000.0, float(b["pomp_kw_buurt"]), 5.0,
-                                                         key=f"{bron}:pomp_kw_buurt:{code}")
+            keuzes["mt_opwek"] = _keuze(st.radio, f"Warmteproductie MT-net 70 °C{bij}", k3_warmtepomp.MT_OPWEK,
+                                        k3_warmtepomp.MT_STANDAARD, f"{bron}:mtopwek:{code}", toon=wo == "MT",
+                                        format_func=lambda o: {"buiten beschouwing": "warmteproductie is buiten "
+                                                               "de buurt"}.get(o, f"{o} naar 70 °C"))
+            keuzes["zlt_bron"] = _keuze(st.radio, f"Warmtebron ZLT-net{bij}", k3_warmtepomp.ZLT_BRON,
+                                        k3_warmtepomp.ZLT_STANDAARD, f"{bron}:zltbron:{code}", toon=wo == "ZLT",
+                                        format_func=lambda o: {"buiten beschouwing": "bron is buiten de buurt "
+                                                               "(bronstroom telt niet mee)"}.get(o, f"{o} + "
+                                                                                                    "centrale bronwarmtepomp"))
+            net = wo in ("ZLT", "MT")  # alleen bij een warmtenet
+            keuzes["pomp_invoer"] = _keuze(st.radio, "Pompvermogen warmtenet opgeven als", k3_warmtepomp.POMPINVOER,
+                                           k3_warmtepomp.POMPINVOER[0], f"{bron}:pompinvoer", toon=net, horizontal=True)
+            sleutel = f"{bron}:pomp_kw_buurt:{code}"  # standaard: het pompvermogen per woning × woningen
+            b["pomp_kw_buurt"] = bewaard.get(sleutel, invoer.ALGEMEEN["pomp_w_woning"].standaard * b["woningen"] / 1000)
+            if net and keuzes["pomp_invoer"] == "totaal buurt":
+                b["pomp_kw_buurt"] = _onthoud(sleutel, st.number_input(
+                    "Totaal pompvermogen warmtenet (kW, constant)" if COMPACT else
+                    f"Totaal pompvermogen warmtenet {buurt} (kW, constant)", 0.0, 5000.0, float(b["pomp_kw_buurt"]), 5.0,
+                    key=sleutel))
         elif kaart == 4:  # prognose: totaal aantal EV's in de buurt, één scenario voor alle buurten
             keuzes["ev_scenario"] = st.radio("Prognose elektrische personenauto's", EV_SCENARIOS, horizontal=True,
                                              index=EV_SCENARIOS.index(invoer.EV_SCENARIO), key=f"{bron}:ev_scenario")
@@ -150,8 +160,8 @@ with st.sidebar:
                 start = p[naam] if naam in invoer.UIT_DATA else None  # standaard uit parameters.csv
                 if _relevant(naam):
                     p[naam] = _veld(naam, v, standaard=start)
-                elif start is None:  # niet van toepassing: standaard
-                    p[naam] = invoer.standaard(naam, v, jaar)
+                else:  # verborgen: de bewaarde waarde (telt mee in de vergelijking), anders de standaard
+                    p[naam] = bewaard.get(_sleutel(naam, False), invoer.standaard(naam, v, jaar) if start is None else start)
 
     for k in WONINGTYPEN.values():  # extra woningen (of sloop) per type: alle tabs rekenen met het totaal
         b[f"woningen_{k}_nu"] = float(b[f"woningen_{k}"])
