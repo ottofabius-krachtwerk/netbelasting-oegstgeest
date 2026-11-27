@@ -80,7 +80,8 @@ OPEN_PUNTEN = {
         "Ontwerpdag met constant −10 °C is een aanname"],
     4: ["Laadenergie per auto per werkdag onderbouwen",
         "Aandeel publiek laden (40 %) is een aanname",
-        "Aantal EV's in 2025: bronbestand en Klimaatmonitor verschillen",
+        "Aantal EV's in 2025: bronbestand en Klimaatmonitor verschillen; we gebruiken het bronbestand 'Bewerkte data "
+        "per buurt 1-1-2025' (2.833 EV's in de gemeente), dat completer is dan de Klimaatmonitor (1.201)",
         "Slim thuisladen (vlak van 01:00 tot 06:00) is een aanname"],
     5: ["Laadenergie per bestelbus (40 kWh) en per truck (150 kWh) zijn placeholders",
         "Laadprofielen per voertuigtype uit een bron halen",
@@ -91,8 +92,7 @@ OPEN_PUNTEN = {
     7: ["Keuze ontwerpdag: zonnige echte dag of bewolkte dag",
         "Instraling per jaar naar KNMI (1.220 kWh/m²)",
         "Zonnedakje: potentie in kWh of kWp, en of 'resterend' de huidige panelen uitsluit"],
-    8: ["Energiebelasting meenemen bij laden uit het net (groter dan het prijsverschil)",
-        "Batterijparameters en adoptiegraad onderbouwen"],
+    8: ["Verwachte adoptiegraad per jaartal onderbouwen"],
     9: ["Spreiding (95 %-grens) nu alleen voor laden personenauto's",
         "Standaardwaarden voor 2035 en 2050 zijn voorlopig"],
 }
