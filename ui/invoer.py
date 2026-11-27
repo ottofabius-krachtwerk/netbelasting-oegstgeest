@@ -39,8 +39,10 @@ ALGEMEEN = {
     "groei_niet_huish": Veld(6, "Groei verbruik niet-huishoudelijk gemeente",
                              "MWh per jaar, bovenop het huidige verbruik; gelijk verdeeld over de buurten",
                              0, -20000, 100000, 100),
-    "slim_log_bestel": Veld(5, "Aandeel slim laden bestelbussen", "% van de laadenergie van bestelbussen", 0, 0, 100, 5),
-    "slim_log_truck": Veld(5, "Aandeel slim laden trucks", "% van de laadenergie van trucks", 0, 0, 100, 5),
+    "slim_log_bestel": Veld(5, "Aandeel slim laden bestelbussen", "% van de laadenergie van bestelbussen", 10, 0, 100, 5,
+                            "Standaard per zichtjaar 10, 40 en 70 %: voorlopige aanname, nog te onderbouwen"),
+    "slim_log_truck": Veld(5, "Aandeel slim laden trucks", "% van de laadenergie van trucks", 20, 0, 100, 5,
+                           "Standaard per zichtjaar 20, 50 en 80 %: voorlopige aanname, nog te onderbouwen"),
     "bat_adoptie": Veld(8, "Woningen met thuisbatterij", "% van alle woningen in de buurt", 10, 0, 100, 1),
 }
 
@@ -70,8 +72,10 @@ STANDAARD_PER_JAAR = {
     "koken_penetratie_groei": {2025: 0, 2035: 25, 2050: 75},
     "slim_thuis": {2025: 0, 2035: 25, 2050: 50},
     "slim_publiek": {2025: 0, 2035: 25, 2050: 50},
-    "slim_log_bestel": {2025: 0, 2035: 25, 2050: 50},
-    "slim_log_truck": {2025: 0, 2035: 25, 2050: 50},
+    # logistiek: wagenparken laden op het eigen terrein en sturen eerder slim (netaansluiting, kosten); trucks het
+    # sterkst door het hoge laadvermogen. Voorlopige aanname, nog te onderbouwen.
+    "slim_log_bestel": {2025: 10, 2035: 40, 2050: 70},
+    "slim_log_truck": {2025: 20, 2035: 50, 2050: 80},
     "groei_niet_huish": {2025: 0, 2035: 3600, 2050: 7200},  # MWh per jaar; ruim 10 en 20 % van 36 GWh
     "bat_adoptie": {2025: 10, 2035: 20, 2050: 35},
     "isolatie_reductie": {2025: 0, 2035: 10, 2050: 20},

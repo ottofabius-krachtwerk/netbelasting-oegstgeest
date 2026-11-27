@@ -128,6 +128,7 @@ with st.sidebar:
             keuzes["log_scenario"] = st.radio("Prognose elektrische bestelbussen en trucks", EV_SCENARIOS, horizontal=True,
                                               index=EV_SCENARIOS.index(invoer.EV_SCENARIO), key=f"{bron}:log_scenario")
             for t in LOG_TYPEN:
+                b[f"log_{t}_totaal"] = float(b[f"{t}_{keuzes['log_scenario']}_{jaar}"])  # alleen voor de kerncijfers
                 b[f"log_{t}_extra"] = max(0.0, float(b[f"{t}_{keuzes['log_scenario']}_{jaar}"]) - float(b[f"{t}_{keuzes['log_scenario']}_2025"]))
         elif kaart == 8:
             keuzes["bat_modus"] = st.radio("Batterijmodus", k8_batterij.MODI, key=f"{bron}:batmodus")
@@ -212,7 +213,7 @@ if t[2].open:
         tabs.kaart2(r2, _status)
 if t[5].open:
     with t[5]:
-        tabs.kaart5(r5, p, _status)
+        tabs.kaart5(r5, p, _status, {"E-bestelbus": b["log_bestel_totaal"], "E-truck": b["log_truck_totaal"]}, jaar)
 if t[6].open:
     with t[6]:
         tabs.kaart6(r6, p, _status)

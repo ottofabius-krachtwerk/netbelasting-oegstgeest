@@ -446,14 +446,16 @@ def kaart2(r: k2_koken.Resultaat, tag) -> None:
     _vast(2)
 
 
-def kaart5(r: k5_logistiek.Resultaat, p, tag) -> None:
+def kaart5(r: k5_logistiek.Resultaat, p, tag, totaal: dict, jaar: int) -> None:
+    """totaal: aantal voertuigen per type in het zichtjaar (de berekening gebruikt alleen de toename t.o.v. 2025)."""
     kl = r.klassen
     kleuren = KLEUR[:len(kl)]
     _kop(5, extra=badge("placeholder").replace("margin-left:6px", "margin-left:0") + " laadenergie en verloop zijn "
                                                                                        "nog open")
     _formule("Profiel = per voertuigtype: aantal elektrische voertuigen × laadenergie per voertuig × verloop over de dag",
              "P[t] = Σ 4 × N × E × v[t]")
-    kerncijfers([*((f"Extra {MEERVOUD.get(n, n)}", nl(c.N), "") for n, c in kl.items()),
+    kerncijfers([*((f"{MEERVOUD.get(n, n).capitalize()} in {jaar} ({nl(c.N)} extra)", nl(totaal[n]), "")
+                   for n, c in kl.items()),
                  ("Laadenergie op deze dag", nl(sum(c.N * c.E for c in kl.values())), "kWh"), _piek(r.P)])
     stap(1, "Extra elektrische voertuigen", nl(sum(k.N for k in kl.values())), "voertuigen", tag=tag("buurten"),
          extra=[(n, nl(k.N)) for n, k in kl.items()],
@@ -474,8 +476,9 @@ def kaart5(r: k5_logistiek.Resultaat, p, tag) -> None:
                 "vooral aan het eind van de werkdag (piek rond 21:00), trucks 's avonds en 's nachts met bijladen "
                 "overdag. Slim laden is vlak van 22:00 tot 06:00. Het aandeel slim laden stel je in de zijbalk in.",
          bron="aanname (schetsprofielen) · later: laadprofiel logistiek uit een bron (te bevestigen)")
-    p_en_checks(4, r.P, kleur(5), r.checks, naam="Profiel per voertuigtype",
-                fig=gestapeld({n: k.P for n, k in kl.items()}, kleuren, totaal=r.P))
+    # per voertuig (genormaliseerd): het laadprofiel is ook te zien als er (nog) geen extra voertuigen zijn
+    p_en_checks(4, r.P, kleur(5), r.checks, naam="Laadprofiel per voertuig",
+                fig=lijn({n: 4 * k.E * k.v for n, k in kl.items()}, kleuren, "kW per voertuig", H_GROOT, fmt=",.1f"))
     open_punten(OPEN_PUNTEN[5])
     _vast(5)
 
