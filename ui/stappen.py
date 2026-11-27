@@ -113,13 +113,12 @@ def p_en_checks(nr: int, P, kleur: str, checks: list[Check], naam: str = "Profie
 def kop(invoer: str, bronnen: str, extra: str = "") -> None:
     """Bovenaan een tab: invoer en bronnen. De status van de methodiek staat in de kleur van de tabtitel."""
     eerste = f"{extra}<br>" if extra else ""
-    if COMPACT:
-        st.markdown(f"<div style='margin:-.2rem 0 .7rem;font-size:.82rem;color:#52514e;line-height:1.5'>{eerste}"
-                    f"<b>Bronnen</b> {bronnen}</div>", unsafe_allow_html=True)
-        return
-    st.markdown(
-        f"<div style='margin:-.2rem 0 .7rem;font-size:.82rem;color:#52514e;line-height:1.5'>{eerste}"
-        f"<b>Invoer</b> {invoer}<br><b>Bronnen</b> {bronnen}</div>", unsafe_allow_html=True)
+    # bronnen onder elkaar: één regel per bron (in meta gescheiden door " · ")
+    lijst = ("<ul style='margin:.1rem 0 0 1rem;padding:0'>"
+             + "".join(f"<li>{x}</li>" for x in bronnen.split(" · ")) + "</ul>")
+    invoerregel = "" if COMPACT else f"<b>Invoer</b> {invoer}<br>"
+    st.markdown(f"<div style='margin:-.2rem 0 .7rem;font-size:.82rem;color:#52514e;line-height:1.5'>{eerste}"
+                f"{invoerregel}<b>Bronnen</b>{lijst}</div>", unsafe_allow_html=True)
 
 
 def banner(status: str, tekst: str) -> None:
