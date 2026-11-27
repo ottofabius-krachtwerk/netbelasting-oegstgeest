@@ -98,3 +98,20 @@ OPEN_PUNTEN = {
     9: ["Spreiding (95 %-grens) nu alleen voor laden personenauto's",
         "Standaardwaarden voor 2035 en 2050 zijn voorlopig"],
 }
+
+
+# Links bij de bronnen bovenaan een tab: (alleen als de bron dit bevat, tekst die de link wordt, url). Alle passende
+# regels worden toegepast; de eerste keer dat de tekst voorkomt, wordt een link.
+BRON_LINKS = [
+    ("Klimaatmonitor", "Klimaatmonitor", "https://klimaatmonitor.databank.nl"),
+    ("CBS wijk- en buurtkaart 2025", "CBS wijk- en buurtkaart 2025",
+     "https://www.cbs.nl/nl-nl/dossier/nederland-regionaal/geografische-data/wijk-en-buurtkaart-2025"),
+    ("NEDU", "NEDU standaardprofielen elektriciteit 2025", "https://www.nedu.nl/documenten/verbruiksprofielen/"),
+    ("Zonnedakje", "Zonnedakje", "https://www.zonnedakje.nl"),
+    ("(graaddagen", "KNMI station 215", "https://www.knmi.nl/nederland-nu/klimatologie/daggegevens"),
+    ("(instraling", "KNMI station 215", "https://www.knmi.nl/nederland-nu/klimatologie/uurgegevens"),
+    ("RAMP", "RAMP-kookprofielen NL (2022)", "https://zenodo.org/records/6579421"),
+    ("ElaadNL", "ElaadNL gegenereerde laadpuntprofielen 2025", "https://elaad.nl/data/"),
+    ("EPEX", "EPEX NL", "https://www.epexspot.com/en/market-results"),
+    ("Energy Quantified", "Energy Quantified", "https://www.energyquantified.com"),
+]

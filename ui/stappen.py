@@ -4,6 +4,7 @@ import streamlit as st
 
 from model.common import Check, nl
 from ui.charts import H_GROOT, TIJD, lijn, toon
+from ui.kaarten import BRON_LINKS
 
 # Compacte weergave: per tab alleen de bronnen en de grafieken; uitleg, rekenregels, checks en vaste waarden vallen weg.
 # De invoer in de zijbalk blijft gelijk.
@@ -110,12 +111,20 @@ def p_en_checks(nr: int, P, kleur: str, checks: list[Check], naam: str = "Profie
         checktabel(checks)
 
 
+def _met_links(bron: str) -> str:
+    """Maak van de bronnaam een link (nieuw tabblad) als er een link voor is (BRON_LINKS in ui/kaarten.py)."""
+    for als, tekst, url in BRON_LINKS:
+        if als in bron and tekst in bron:
+            bron = bron.replace(tekst, f"<a href='{url}' target='_blank'>{tekst}</a>", 1)
+    return bron
+
+
 def kop(invoer: str, bronnen: str, extra: str = "") -> None:
     """Bovenaan een tab: invoer en bronnen. De status van de methodiek staat in de kleur van de tabtitel."""
     eerste = f"{extra}<br>" if extra else ""
     # bronnen onder elkaar: één regel per bron (in meta gescheiden door " · ")
     lijst = ("<ul style='margin:.1rem 0 0 1rem;padding:0'>"
-             + "".join(f"<li>{x}</li>" for x in bronnen.split(" · ")) + "</ul>")
+             + "".join(f"<li>{_met_links(x)}</li>" for x in bronnen.split(" · ")) + "</ul>")
     invoerregel = "" if COMPACT else f"<b>Invoer</b> {invoer}<br>"
     st.markdown(f"<div style='margin:-.2rem 0 .7rem;font-size:.82rem;color:#52514e;line-height:1.5'>{eerste}"
                 f"{invoerregel}<b>Bronnen</b>{lijst}</div>", unsafe_allow_html=True)

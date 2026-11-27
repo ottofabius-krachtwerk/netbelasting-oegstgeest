@@ -52,7 +52,7 @@ with st.sidebar:
     b = data.buurten.loc[code].copy()
     buurt = b["buurt_naam"]
     if COMPACT:
-        st.caption(f"Invoer per buurt geldt voor {buurt}. Eenheden en uitleg staan bij het vraagteken.")
+        st.caption(f"Invoer per buurt geldt voor {buurt}. Uitleg staat bij het vraagteken.")
     # compact: korte labels zonder buurtnaam (die staat bovenaan)
     bij = "" if COMPACT else f" ({buurt})"
     keuzes = {}
@@ -62,7 +62,7 @@ with st.sidebar:
         De standaardwaarde hangt af van het zichtjaar; het jaar zit in de sleutel, dus een jaarwissel geeft een
         vers veld met de standaardwaarde van dat jaar (Streamlit wist de status van velden die niet meer getoond worden)."""
         if COMPACT:  # kort label; eenheid en uitleg in de help
-            label = v.label
+            label = f"{v.label} ({invoer.eenheid_kort(v)})"
             uitleg = f"{v.eenheid[:1].upper()}{v.eenheid[1:]}." + (f" {v.uitleg}" if v.uitleg else "")
         else:
             label = f"{v.label} {buurt} ({v.eenheid})" if per_buurt else f"{v.label} ({v.eenheid})"

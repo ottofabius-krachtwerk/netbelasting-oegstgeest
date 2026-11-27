@@ -82,3 +82,9 @@ def standaard(naam: str, veld: Veld, jaar: int) -> float:
 
 
 NAMEN = set(ALGEMEEN) | set(PER_BUURT) | {"warmteoplossing", "pomp_kw_buurt", "ev_scenario"}  # geen data: telt niet mee in de status
+
+
+def eenheid_kort(veld: Veld) -> str:
+    """Korte eenheid voor het label in de compacte zijbalk: het eerste woord van de eenheid, met enkele uitzonderingen."""
+    eerste = veld.eenheid.split()[0].rstrip(",;")
+    return {"W": "W per woning", "MWh": "MWh per jaar"}.get(eerste, eerste)
